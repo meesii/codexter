@@ -14,12 +14,13 @@ import '../models/skill_entry.dart';
 import '../models/workspace.dart';
 import '../services/capability_runtime.dart';
 import '../services/doctor_service.dart';
+import '../services/notification_service.dart';
 import '../services/tunnel_service.dart';
 import '../utils/app_paths.dart';
 import 'config_store.dart';
 import 'log_store.dart';
 
-enum AppPage { home, skills, mcpManage, setup, doctor }
+enum AppPage { home, skills, mcpManage, doctor }
 
 /// 全局状态协调层：配置、工作区、MCP 服务、Tunnel、能力集
 class AppState extends ChangeNotifier {
@@ -28,6 +29,7 @@ class AppState extends ChangeNotifier {
   final TunnelService tunnelService = TunnelService();
   final CapabilityRuntime capabilities = CapabilityRuntime();
   final DoctorService doctorService = DoctorService();
+  final NotificationService notificationService = NotificationService();
 
   GlobalConfig _config = GlobalConfig();
   List<Workspace> _workspaces = [];
@@ -112,6 +114,14 @@ class AppState extends ChangeNotifier {
     capabilities.syncSkills(_skills);
     capabilities.addListener(notifyListeners);
     logStore.addListener(notifyListeners);
+    await notificationService.initialize();
+    if (_config.notificationsEnabled) {
+      unawaited(
+        notificationService.requestPermissions(
+          sound: _config.notificationSound,
+        ),
+      );
+    }
 
     _initialized = true;
     notifyListeners();
@@ -155,11 +165,54 @@ class AppState extends ChangeNotifier {
     }
     _latestSummary = notice;
     _summaryRevision += 1;
+    if (_config.notificationsEnabled) {
+      unawaited(
+        notificationService.showSummary(
+          notice,
+          sound: _config.notificationSound,
+        ),
+      );
+    }
     notifyListeners();
   }
 
   Future<void> toggleDarkMode() async {
-    await saveGlobalConfig(_config.copyWith(darkMode: !darkMode));
+    await setThemeMode(!darkMode);
+  }
+
+  Future<void> setThemeMode(bool? darkMode) async {
+    await saveGlobalConfig(_config.copyWith(darkMode: darkMode));
+  }
+
+  Future<void> setCloseToTray(bool enabled) async {
+    await saveGlobalConfig(_config.copyWith(closeToTray: enabled));
+  }
+
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    await saveGlobalConfig(_config.copyWith(notificationsEnabled: enabled));
+    if (enabled) {
+      await notificationService.requestPermissions(
+        sound: _config.notificationSound,
+      );
+    }
+  }
+
+  Future<void> setNotificationSound(bool enabled) async {
+    await saveGlobalConfig(_config.copyWith(notificationSound: enabled));
+    if (_config.notificationsEnabled && enabled) {
+      await notificationService.requestPermissions(sound: true);
+    }
+  }
+
+  Future<String?> testNotification() async {
+    if (!_config.notificationsEnabled) return '通知功能已关闭';
+    return notificationService.showTest(sound: _config.notificationSound);
+  }
+
+  Future<void> setSidebarWidth(double width) async {
+    await saveGlobalConfig(
+      _config.copyWith(sidebarWidth: width.clamp(200, 340)),
+    );
   }
 
   void syncSystemTheme() {
@@ -186,6 +239,10 @@ class AppState extends ChangeNotifier {
     required String name,
     required String projectRoot,
     bool autoStart = true,
+    List<String>? selectedSkillNames,
+    List<String>? selectedMcpNames,
+    String agentsMode = Workspace.agentsAuto,
+    String customAgents = '',
   }) async {
     final now = DateTime.now();
     final workspace = Workspace(
@@ -195,6 +252,10 @@ class AppState extends ChangeNotifier {
       autoStart: autoStart,
       createdAt: now,
       lastActiveAt: now,
+      selectedSkillNames: selectedSkillNames,
+      selectedMcpNames: selectedMcpNames,
+      agentsMode: agentsMode,
+      customAgents: customAgents,
     );
     _workspaces = [..._workspaces, workspace];
     await ConfigStore.saveWorkspace(workspace);

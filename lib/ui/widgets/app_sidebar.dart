@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import 'app_components.dart';
 import 'app_spacing.dart';
 import 'app_toast.dart';
+import 'settings_dialog.dart';
 
 /// 左侧导航：品牌区 + 工作区列表 + 全局管理入口 + 服务状态
 class AppSidebar extends StatelessWidget {
@@ -21,7 +22,6 @@ class AppSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      width: AppSpacing.sidebarWidth,
       decoration: BoxDecoration(
         color: AppTones.surfaceSunken(theme),
         border: Border(right: BorderSide(color: theme.colorScheme.border)),
@@ -66,9 +66,9 @@ class AppSidebar extends StatelessWidget {
                   ),
                   _NavItem(
                     icon: BootstrapIcons.gear,
-                    label: '公网配置',
-                    active: _isActive(AppPage.setup),
-                    onPressed: () => appState.setCurrentPage(AppPage.setup),
+                    label: '全局设置',
+                    active: false,
+                    onPressed: () => SettingsDialog.show(context, appState),
                   ),
                   _NavItem(
                     icon: BootstrapIcons.activity,

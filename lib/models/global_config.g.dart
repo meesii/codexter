@@ -26,13 +26,17 @@ class GlobalConfigAdapter extends TypeAdapter<GlobalConfig> {
       cloudflaredBin: fields[6] as String?,
       firstRunCompleted: fields[7] as bool,
       darkMode: fields[8] as bool?,
+      closeToTray: fields[9] as bool? ?? true,
+      notificationsEnabled: fields[10] as bool? ?? true,
+      notificationSound: fields[11] as bool? ?? true,
+      sidebarWidth: (fields[12] as num?)?.toDouble() ?? 236,
     );
   }
 
   @override
   void write(BinaryWriter writer, GlobalConfig obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.domain)
       ..writeByte(1)
@@ -50,7 +54,15 @@ class GlobalConfigAdapter extends TypeAdapter<GlobalConfig> {
       ..writeByte(7)
       ..write(obj.firstRunCompleted)
       ..writeByte(8)
-      ..write(obj.darkMode);
+      ..write(obj.darkMode)
+      ..writeByte(9)
+      ..write(obj.closeToTray)
+      ..writeByte(10)
+      ..write(obj.notificationsEnabled)
+      ..writeByte(11)
+      ..write(obj.notificationSound)
+      ..writeByte(12)
+      ..write(obj.sidebarWidth);
   }
 
   @override

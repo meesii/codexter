@@ -152,7 +152,7 @@ void main() {
         expect(html, contains('ui/initialize'));
         expect(html, contains('ui/notifications/tool-input'));
         expect(html, contains('ui/notifications/tool-result'));
-        expect(html, contains('本轮处理结束'));
+        expect(html, isNot(contains('本轮处理结束')));
         expect(html, isNot(contains('任务完成')));
         expect(html, isNot(contains('tools/call')));
     });

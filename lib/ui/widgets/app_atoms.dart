@@ -207,7 +207,10 @@ class AppStat extends StatelessWidget {
         const Gap(AppSpacing.xs),
         Text(
           value,
-          style: AppTones.muted(theme, size: 11).copyWith(color: tone, height: 1.2),
+          style: AppTones.muted(
+            theme,
+            size: 11,
+          ).copyWith(color: tone, height: 1.2),
         ),
       ],
     );
@@ -525,7 +528,10 @@ class AppNotice extends StatelessWidget {
                   const Gap(AppSpacing.xs),
                   Text(
                     detail!,
-                    style: AppTones.muted(theme, size: 11).copyWith(height: 1.4),
+                    style: AppTones.muted(
+                      theme,
+                      size: 11,
+                    ).copyWith(height: 1.4),
                     maxLines: detailMaxLines,
                     overflow: detailMaxLines == null
                         ? TextOverflow.visible
@@ -585,6 +591,7 @@ class AppField extends StatelessWidget {
   final int? maxLines;
   final Widget? trailing;
   final bool obscure;
+  final bool readOnly;
 
   const AppField({
     super.key,
@@ -595,6 +602,7 @@ class AppField extends StatelessWidget {
     this.maxLines = 1,
     this.trailing,
     this.obscure = false,
+    this.readOnly = false,
   });
 
   @override
@@ -613,6 +621,7 @@ class AppField extends StatelessWidget {
           controller: controller,
           maxLines: maxLines,
           obscureText: obscure,
+          readOnly: readOnly,
           placeholder: placeholder == null ? null : Text(placeholder!),
         ),
       ),

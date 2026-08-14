@@ -24,13 +24,17 @@ class WorkspaceAdapter extends TypeAdapter<Workspace> {
       createdAt: fields[4] as DateTime,
       lastActiveAt: fields[5] as DateTime,
       enabled: fields[6] as bool,
+      selectedSkillNames: (fields[7] as List?)?.cast<String>(),
+      selectedMcpNames: (fields[8] as List?)?.cast<String>(),
+      agentsMode: fields[9] as String? ?? Workspace.agentsAuto,
+      customAgents: fields[10] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, Workspace obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.uuid)
       ..writeByte(1)
@@ -44,7 +48,15 @@ class WorkspaceAdapter extends TypeAdapter<Workspace> {
       ..writeByte(5)
       ..write(obj.lastActiveAt)
       ..writeByte(6)
-      ..write(obj.enabled);
+      ..write(obj.enabled)
+      ..writeByte(7)
+      ..write(obj.selectedSkillNames)
+      ..writeByte(8)
+      ..write(obj.selectedMcpNames)
+      ..writeByte(9)
+      ..write(obj.agentsMode)
+      ..writeByte(10)
+      ..write(obj.customAgents);
   }
 
   @override

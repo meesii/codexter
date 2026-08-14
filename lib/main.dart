@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 import 'app_info.dart';
+import 'services/tray_service.dart';
 import 'stores/app_state.dart';
 import 'ui/app_shell.dart';
 import 'ui/pages/first_run_page.dart';
@@ -46,18 +48,24 @@ class CodexterApp extends StatefulWidget {
 /// 关窗前先停掉 cloudflared 与子进程，避免留下孤儿进程
 class _CodexterAppState extends State<CodexterApp>
     with WindowListener, WidgetsBindingObserver {
+    late final TrayService _trayService;
+    bool _exiting = false;
+
     @override
     void initState() {
         super.initState();
         windowManager.addListener(this);
         WidgetsBinding.instance.addObserver(this);
         widget.appState.syncSystemTheme();
+        _trayService = TrayService(onExitRequested: _exitApp);
+        unawaited(_trayService.initialize());
     }
 
     @override
     void dispose() {
         WidgetsBinding.instance.removeObserver(this);
         windowManager.removeListener(this);
+        unawaited(_trayService.dispose());
         super.dispose();
     }
 
@@ -68,6 +76,19 @@ class _CodexterAppState extends State<CodexterApp>
 
     @override
     Future<void> onWindowClose() async {
+        if (_exiting) return;
+        if (widget.appState.config.closeToTray) {
+            await windowManager.setSkipTaskbar(true);
+            await windowManager.hide();
+            return;
+        }
+        await _exitApp();
+    }
+
+    Future<void> _exitApp() async {
+        if (_exiting) return;
+        _exiting = true;
+        await _trayService.dispose();
         await widget.appState.shutdown();
         await windowManager.setPreventClose(false);
         await windowManager.close();
