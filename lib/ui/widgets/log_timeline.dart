@@ -249,11 +249,16 @@ class _LogTimelineState extends State<LogTimeline> {
                     ),
                     trailing: const Text('仅看异常'),
                   ),
-                  const Spacer(),
-                  AppFilterField(
-                    controller: _filterController,
-                    placeholder: '按工具名或参数筛选',
-                    width: 240,
+                  const Gap(AppSpacing.md),
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: AppFilterField(
+                        controller: _filterController,
+                        placeholder: '按工具名或参数筛选',
+                        width: 200,
+                      ),
+                    ),
                   ),
                 ],
               ),

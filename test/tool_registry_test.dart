@@ -1,11 +1,21 @@
+import 'dart:io';
+
 import 'package:codexter/mcp/tools/registry.dart';
+import 'package:codexter/mcp/tools/tool_bundle.dart';
+import 'package:codexter/mcp/tools/tool_context.dart';
 import 'package:codexter/mcp/ui/mcp_ui_catalog.dart';
+import 'package:codexter/models/summary_notice.dart';
+import 'package:codexter/models/workspace.dart';
+import 'package:codexter/services/capability_runtime.dart';
+import 'package:codexter/services/process_session_manager.dart';
+import 'package:codexter/stores/log_store.dart';
+import 'package:codexter/utils/path_guard.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-    test('tool schema injects required user-visible purpose', () {
+    test('ordinary tool schema does not expose UI metadata', () {
         const schema = ToolSchema(
-            name: 'sample',
+            name: 'apply_patch',
             description: 'Sample tool',
             inputSchema: {
                 'type': 'object',
@@ -16,8 +26,8 @@ void main() {
             },
             annotations: ToolAnnotations.readOnly,
             meta: {
-                'openai/toolInvocation/invoking': '正在读取…',
-                'openai/toolInvocation/invoked': '读取完成',
+                'ui': {'resourceUri': 'ui://old/template.html'},
+                'openai/outputTemplate': 'ui://old/template.html',
             },
         );
 
@@ -25,16 +35,29 @@ void main() {
         final input = json['inputSchema'] as Map<String, dynamic>;
         final properties = input['properties'] as Map<String, dynamic>;
         final required = (input['required'] as List).cast<String>();
+        final meta = json['_meta'] as Map;
 
         expect(properties['purpose'], isA<Map>());
-        expect(properties['path'], isA<Map>());
         expect(required, containsAll(['purpose', 'path']));
-        expect(json['annotations'], ToolAnnotations.readOnly);
-        final meta = json['_meta'] as Map;
-        expect(meta['openai/toolInvocation/invoking'], '正在读取…');
-        expect(meta['openai/outputTemplate'], McpUiCatalog.sharedResourceUri);
-        expect((meta['ui'] as Map)['resourceUri'], McpUiCatalog.sharedResourceUri);
+        expect(meta.containsKey('ui'), isFalse);
+        expect(meta.containsKey('openai/outputTemplate'), isFalse);
+    });
+
+    test('summary is the only tool associated with a UI resource', () {
+        const schema = ToolSchema(
+            name: 'summary',
+            description: 'Final summary',
+            inputSchema: {'type': 'object', 'properties': {}},
+        );
+        final meta = schema.toJson()['_meta'] as Map;
+
+        expect((meta['ui'] as Map)['resourceUri'], McpUiCatalog.summaryResourceUri);
         expect((meta['ui'] as Map)['visibility'], ['model', 'app']);
+        expect(meta['openai/outputTemplate'], McpUiCatalog.summaryResourceUri);
+
+        final resources = McpUiCatalog.resourceList();
+        expect(resources, hasLength(1));
+        expect(resources.single['uri'], McpUiCatalog.summaryResourceUri);
     });
 
     test('registry strips purpose before invoking business handler', () async {
@@ -61,109 +84,99 @@ void main() {
         expect(result.meta?['codexMcpUi'], isA<Map>());
         final ui = result.meta!['codexMcpUi'] as Map;
         expect(ui['tool'], 'sample');
-        expect(ui['groupLabel'], '终端');
         expect(ui['purpose'], '读取配置文件');
         expect(ui['ok'], isTrue);
     });
 
-    test('all ordinary tools share one MCP UI resource', () {
-        for (final toolName in ['read', 'grep', 'bash', 'git_status', 'goal_status', 'mcp_call']) {
-            expect(McpUiCatalog.resourceUriForTool(toolName), McpUiCatalog.sharedResourceUri);
+    test('summary invocation emits desktop round-summary event', () async {
+        final temp = await Directory.systemTemp.createTemp('codex_summary_tool_');
+        final processManager = ProcessSessionManager();
+        final capabilities = CapabilityRuntime();
+        final logStore = LogStore();
+        SummaryNotice? summaryNotice;
+        final now = DateTime.now();
+        final workspace = Workspace(
+            uuid: '11111111-1111-4111-8111-111111111111',
+            name: 'summary-test',
+            projectRoot: temp.path,
+            createdAt: now,
+            lastActiveAt: now,
+        );
+        final context = ToolContext(
+            workspace: workspace,
+            pathGuard: PathGuard(temp.path),
+            processManager: processManager,
+            capabilities: capabilities,
+            logStore: logStore,
+            onSummary: (notice) => summaryNotice = notice,
+        );
+        final registry = ToolBundle.build(context);
+
+        try {
+            final result = await registry.invoke('summary', {
+                'purpose': '总结本轮处理',
+                'title': '本轮处理结束',
+                'summary': '已经完成这一轮处理。',
+                'details': ['检查通过'],
+            });
+
+            expect(result.isError, isFalse);
+            expect(result.structuredContent?.containsKey('status'), isFalse);
+            expect(result.structuredContent?['endedAt'], isA<String>());
+            expect(summaryNotice, isNotNull);
+            expect(summaryNotice!.workspaceUuid, workspace.uuid);
+            expect(summaryNotice!.title, '本轮处理结束');
+            expect(summaryNotice!.summary, '已经完成这一轮处理。');
+            expect(summaryNotice!.details, ['检查通过']);
+        } finally {
+            await processManager.shutdown();
+            processManager.dispose();
+            await capabilities.shutdown();
+            capabilities.dispose();
+            logStore.dispose();
+            await temp.delete(recursive: true);
         }
-        final resources = McpUiCatalog.resourceList();
-        expect(resources, hasLength(1));
-        expect(resources.single['uri'], McpUiCatalog.sharedResourceUri);
     });
 
-    test('MCP UI resource is self-contained mcp-app html with widget domain', () {
+    test('summary resource is self-contained mcp-app html with widget domain', () {
         const widgetDomain = 'https://mcp.example.com';
         final resource = McpUiCatalog.readResource(
-            McpUiCatalog.sharedResourceUri,
+            McpUiCatalog.summaryResourceUri,
             widgetDomain: widgetDomain,
         )!;
         expect(resource['mimeType'], McpUiCatalog.mimeType);
         final meta = resource['_meta'] as Map;
         expect((meta['ui'] as Map)['domain'], widgetDomain);
-        expect(meta['openai/widgetDomain'], widgetDomain);
 
         final html = resource['text'] as String;
         expect(html, contains('ui/initialize'));
-        expect(html, contains('ui/notifications/initialized'));
         expect(html, contains('ui/notifications/tool-input'));
         expect(html, contains('ui/notifications/tool-result'));
+        expect(html, contains('本轮处理结束'));
+        expect(html, isNot(contains('任务完成')));
         expect(html, isNot(contains('tools/call')));
-        expect(html, isNot(contains('callTool')));
-        expect(html, isNot(contains('id="rerun"')));
-        expect(html, isNot(contains('function rerun()')));
-        expect(html, contains('notifyIntrinsicHeight'));
-        expect(html, contains('setWidgetState'));
-        expect(html, contains('class="frame"'));
-        expect(html, contains('html.is-mobile .frame'));
-        expect(html, contains('env(safe-area-inset-left'));
-        expect(html, contains('function isMobileHost()'));
-        expect(html, contains('applyViewportClass'));
-        expect(html, contains(r'raw.indexOf("\n")'));
-        expect(html.contains('raw.indexOf("\n")'), isFalse);
     });
 
-    test('legacy MCP UI resource versions resolve to the current template', () {
-        final resource = McpUiCatalog.readResource(
-            'ui://codex-mcp/file-tools-v1.html',
-            widgetDomain: 'https://mcp.example.com',
-        )!;
-        expect(resource['uri'], 'ui://codex-mcp/file-tools-v1.html');
-        expect(resource['mimeType'], McpUiCatalog.mimeType);
-        expect(resource['text'], isNotEmpty);
-
-        final sharedResource = McpUiCatalog.readResource(
-            'ui://codex-mcp/tool-card-v3.html',
-            widgetDomain: 'https://mcp.example.com',
-        )!;
-        expect(McpUiCatalog.sharedResourceUri, 'ui://codex-mcp/tool-card-v7.html');
-        expect(sharedResource['uri'], 'ui://codex-mcp/tool-card-v3.html');
-        expect(sharedResource['mimeType'], McpUiCatalog.mimeType);
-        expect(sharedResource['text'], isNotEmpty);
-
-        final v4Resource = McpUiCatalog.readResource(
-            'ui://codex-mcp/tool-card-v4.html',
-            widgetDomain: 'https://mcp.example.com',
-        )!;
-        expect(v4Resource['uri'], 'ui://codex-mcp/tool-card-v4.html');
-        expect(v4Resource['mimeType'], McpUiCatalog.mimeType);
-        expect(v4Resource['text'], isNotEmpty);
-
-        final v5Resource = McpUiCatalog.readResource(
-            'ui://codex-mcp/tool-card-v5.html',
-            widgetDomain: 'https://mcp.example.com',
-        )!;
-        expect(v5Resource['uri'], 'ui://codex-mcp/tool-card-v5.html');
-        expect(v5Resource['mimeType'], McpUiCatalog.mimeType);
-        expect(v5Resource['text'], isNotEmpty);
-
-        final v6Resource = McpUiCatalog.readResource(
-            'ui://codex-mcp/tool-card-v6.html',
-            widgetDomain: 'https://mcp.example.com',
-        )!;
-        expect(v6Resource['uri'], 'ui://codex-mcp/tool-card-v6.html');
-        expect(v6Resource['mimeType'], McpUiCatalog.mimeType);
-        expect(v6Resource['text'], isNotEmpty);
+    test('old tool UI resources are no longer served', () {
+        expect(McpUiCatalog.readResource('ui://codexter/tool-apply-patch-ui.html'), isNull);
+        expect(McpUiCatalog.readResource('ui://codexter/tool-exec-command-ui.html'), isNull);
+        expect(McpUiCatalog.readResource('ui://codexter/tool-mcp-call-ui.html'), isNull);
+        expect(McpUiCatalog.readResource('ui://codex-mcp/tool-ui-card.html'), isNull);
     });
 
-    test('MCP UI widget domain is normalized to a HTTPS origin', () {
+    test('summary widget domain is normalized to a HTTPS origin', () {
         final resource = McpUiCatalog.readResource(
-            McpUiCatalog.sharedResourceUri,
+            McpUiCatalog.summaryResourceUri,
             widgetDomain: 'https://mcp.example.com/widget/path?x=1',
         )!;
         final meta = resource['_meta'] as Map;
         expect((meta['ui'] as Map)['domain'], 'https://mcp.example.com');
-        expect(meta['openai/widgetDomain'], 'https://mcp.example.com');
 
         final invalid = McpUiCatalog.readResource(
-            McpUiCatalog.sharedResourceUri,
+            McpUiCatalog.summaryResourceUri,
             widgetDomain: 'http://127.0.0.1:18920',
         )!;
         final invalidMeta = invalid['_meta'] as Map;
         expect((invalidMeta['ui'] as Map)['domain'], isNull);
-        expect(invalidMeta['openai/widgetDomain'], isNull);
     });
 }

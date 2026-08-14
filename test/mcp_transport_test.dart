@@ -81,12 +81,13 @@ void main() {
                 expect(result.sessionId, isNull);
             }
 
+            const uiResourceUri = McpUiCatalog.summaryResourceUri;
             final readResults = await Future.wait(List.generate(24, (index) {
                 return _postJson(client, uri, {
                     'jsonrpc': '2.0',
                     'id': 100 + index,
                     'method': 'resources/read',
-                    'params': {'uri': McpUiCatalog.sharedResourceUri},
+                    'params': {'uri': uiResourceUri},
                 });
             }));
 
@@ -96,9 +97,9 @@ void main() {
                 final rpcResult = result.body['result'] as Map<String, dynamic>;
                 final contents = rpcResult['contents'] as List;
                 final resource = contents.single as Map<String, dynamic>;
-                expect(resource['uri'], McpUiCatalog.sharedResourceUri);
+                expect(resource['uri'], uiResourceUri);
                 expect(resource['mimeType'], McpUiCatalog.mimeType);
-                expect((resource['text'] as String).length, greaterThan(10000));
+                expect((resource['text'] as String).length, greaterThan(5000));
             }
         } finally {
             client.close(force: true);

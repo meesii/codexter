@@ -14,8 +14,8 @@ Future<void> main() async {
     await windowManager.ensureInitialized();
     await windowManager.waitUntilReadyToShow(
         const WindowOptions(
-            size: Size(1360, 860),
-            minimumSize: Size(1040, 680),
+            size: Size(1120, 720),
+            minimumSize: Size(960, 640),
             title: appName,
             titleBarStyle: TitleBarStyle.hidden,
             windowButtonVisibility: false,

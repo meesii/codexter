@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../models/summary_notice.dart';
 import '../models/workspace.dart';
 import '../services/capability_runtime.dart';
 import '../stores/log_store.dart';
@@ -55,6 +56,7 @@ class MultiWorkspaceServer {
         required Workspace workspace,
         required LogStore logStore,
         required CapabilityRuntime capabilities,
+        SummaryHandler? onSummary,
     }) {
         removeWorkspace(workspace.uuid);
         final handler = WorkspaceHandler.create(
@@ -62,6 +64,7 @@ class MultiWorkspaceServer {
             logStore: logStore,
             capabilities: capabilities,
             widgetDomain: _widgetDomain,
+            onSummary: onSummary,
         );
         _handlers[workspace.uuid] = handler;
         return handler;

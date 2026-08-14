@@ -1,3 +1,4 @@
+import '../../models/summary_notice.dart';
 import '../../models/workspace.dart';
 import '../../services/capability_runtime.dart';
 import '../../services/process_session_manager.dart';
@@ -11,6 +12,7 @@ class ToolContext {
     final ProcessSessionManager processManager;
     final CapabilityRuntime capabilities;
     final LogStore logStore;
+    final SummaryHandler? onSummary;
     final DateTime startedAt = DateTime.now();
 
     ToolContext({
@@ -19,6 +21,7 @@ class ToolContext {
         required this.processManager,
         required this.capabilities,
         required this.logStore,
+        this.onSummary,
     });
 
     String get projectRoot => workspace.projectRoot;

@@ -9,6 +9,7 @@ import '../mcp/multi_workspace_server.dart';
 import '../models/downstream_mcp_entry.dart';
 import '../models/global_config.dart';
 import '../models/mcp_log_entry.dart';
+import '../models/summary_notice.dart';
 import '../models/skill_entry.dart';
 import '../models/workspace.dart';
 import '../services/capability_runtime.dart';
@@ -43,6 +44,8 @@ class AppState extends ChangeNotifier {
   bool _serverRunning = false;
   bool _tunnelRunning = false;
   bool _busy = false;
+  SummaryNotice? _latestSummary;
+  int _summaryRevision = 0;
   bool _systemDark =
       PlatformDispatcher.instance.platformBrightness == Brightness.dark;
 
@@ -78,6 +81,8 @@ class AppState extends ChangeNotifier {
   bool get serverRunning => _serverRunning;
   bool get tunnelRunning => _tunnelRunning;
   bool get busy => _busy;
+  SummaryNotice? get latestSummary => _latestSummary;
+  int get summaryRevision => _summaryRevision;
   bool get isFirstRun => !_config.firstRunCompleted;
   bool get darkMode => _config.darkMode ?? _systemDark;
 
@@ -136,6 +141,20 @@ class AppState extends ChangeNotifier {
 
   void clearError() {
     _lastError = null;
+    notifyListeners();
+  }
+
+  void _handleSummary(SummaryNotice notice) {
+    final previous = _latestSummary;
+    if (previous != null &&
+        previous.workspaceUuid == notice.workspaceUuid &&
+        previous.title == notice.title &&
+        previous.summary == notice.summary &&
+        notice.endedAt.difference(previous.endedAt).inSeconds.abs() < 3) {
+      return;
+    }
+    _latestSummary = notice;
+    _summaryRevision += 1;
     notifyListeners();
   }
 
@@ -462,6 +481,7 @@ class AppState extends ChangeNotifier {
       workspace: workspace,
       logStore: logStore,
       capabilities: capabilities,
+      onSummary: _handleSummary,
     );
     handler.processManager.addListener(notifyListeners);
   }

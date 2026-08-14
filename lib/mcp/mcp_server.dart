@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:uuid/uuid.dart';
 import '../app_info.dart';
 import '../models/mcp_log_entry.dart';
+import '../models/summary_notice.dart';
 import '../models/workspace.dart';
 import '../services/capability_runtime.dart';
 import '../services/process_session_manager.dart';
@@ -53,6 +54,7 @@ class WorkspaceHandler {
         required LogStore logStore,
         required CapabilityRuntime capabilities,
         required String widgetDomain,
+        SummaryHandler? onSummary,
     }) {
         final context = ToolContext(
             workspace: workspace,
@@ -60,6 +62,7 @@ class WorkspaceHandler {
             processManager: ProcessSessionManager(),
             capabilities: capabilities,
             logStore: logStore,
+            onSummary: onSummary,
         );
         return WorkspaceHandler._(
             workspace: workspace,
