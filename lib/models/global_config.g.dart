@@ -30,13 +30,14 @@ class GlobalConfigAdapter extends TypeAdapter<GlobalConfig> {
       notificationsEnabled: fields[10] as bool? ?? true,
       notificationSound: fields[11] as bool? ?? true,
       sidebarWidth: (fields[12] as num?)?.toDouble() ?? 236,
+      closeActionRemembered: fields[13] as bool? ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, GlobalConfig obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.domain)
       ..writeByte(1)
@@ -62,7 +63,9 @@ class GlobalConfigAdapter extends TypeAdapter<GlobalConfig> {
       ..writeByte(11)
       ..write(obj.notificationSound)
       ..writeByte(12)
-      ..write(obj.sidebarWidth);
+      ..write(obj.sidebarWidth)
+      ..writeByte(13)
+      ..write(obj.closeActionRemembered);
   }
 
   @override

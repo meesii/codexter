@@ -184,8 +184,17 @@ class AppState extends ChangeNotifier {
     await saveGlobalConfig(_config.copyWith(darkMode: darkMode));
   }
 
-  Future<void> setCloseToTray(bool enabled) async {
-    await saveGlobalConfig(_config.copyWith(closeToTray: enabled));
+  Future<void> rememberCloseAction({required bool minimizeToTray}) async {
+    await saveGlobalConfig(
+      _config.copyWith(
+        closeToTray: minimizeToTray,
+        closeActionRemembered: true,
+      ),
+    );
+  }
+
+  Future<void> resetCloseActionPreference() async {
+    await saveGlobalConfig(_config.copyWith(closeActionRemembered: false));
   }
 
   Future<void> setNotificationsEnabled(bool enabled) async {

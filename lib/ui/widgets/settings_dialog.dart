@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -283,14 +284,32 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
         const Gap(AppSpacing.md),
         _SettingsGroup(
           children: [
-            _SettingItem(
-              title: '关闭窗口时最小化到托盘',
-              description: '关闭主窗口后继续保持 MCP、Tunnel 和运行中的命令。',
-              trailing: Switch(
-                value: config.closeToTray,
-                onChanged: appState.setCloseToTray,
+            if (Platform.isMacOS)
+              const _SettingItem(
+                title: '关闭主窗口',
+                description: '点击关闭只隐藏主窗口并继续后台运行；使用 ⌘Q 或菜单栏退出可完全退出应用。',
+                trailing: AppTag(label: '继续后台运行'),
+              )
+            else if (Platform.isWindows)
+              _SettingItem(
+                title: '关闭窗口行为',
+                description: config.closeActionRemembered
+                    ? '已记住关闭时${config.closeToTray ? '最小化到托盘' : '退出应用'}。'
+                    : '关闭窗口时询问是最小化到托盘还是退出应用。',
+                trailing: config.closeActionRemembered
+                    ? Button(
+                        style: ButtonStyle.outline(size: ButtonSize.small),
+                        onPressed: appState.resetCloseActionPreference,
+                        child: const Text('恢复询问'),
+                      )
+                    : const AppTag(label: '每次询问'),
+              )
+            else
+              const _SettingItem(
+                title: '关闭窗口行为',
+                description: '关闭主窗口时退出应用。',
+                trailing: AppTag(label: '退出应用'),
               ),
-            ),
             _SettingItem(
               title: '界面主题',
               description: '跟随系统自动切换，或固定为浅色 / 深色。',
