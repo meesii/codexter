@@ -1,0 +1,476 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
+import 'package:hive/hive.dart';
+import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
+import '../mcp/multi_workspace_server.dart';
+import '../models/downstream_mcp_entry.dart';
+import '../models/global_config.dart';
+import '../models/mcp_log_entry.dart';
+import '../models/skill_entry.dart';
+import '../models/workspace.dart';
+import '../services/capability_runtime.dart';
+import '../services/doctor_service.dart';
+import '../services/tunnel_service.dart';
+import '../utils/app_paths.dart';
+import 'config_store.dart';
+import 'log_store.dart';
+
+enum AppPage { home, skills, mcpManage, setup, doctor }
+
+/// 全局状态协调层：配置、工作区、MCP 服务、Tunnel、能力集
+class AppState extends ChangeNotifier {
+  final LogStore logStore = LogStore();
+  final MultiWorkspaceServer mcpServer = MultiWorkspaceServer();
+  final TunnelService tunnelService = TunnelService();
+  final CapabilityRuntime capabilities = CapabilityRuntime();
+  final DoctorService doctorService = DoctorService();
+
+  GlobalConfig _config = GlobalConfig();
+  List<Workspace> _workspaces = [];
+  List<SkillEntry> _skills = [];
+  List<DownstreamMcpEntry> _mcps = [];
+  List<DoctorCheck> _doctorChecks = [];
+  bool _doctorRunning = false;
+  String? _doctorRunningTitle;
+
+  AppPage _currentPage = AppPage.home;
+  String? _selectedWorkspaceUuid;
+  String? _lastError;
+  bool _initialized = false;
+  bool _serverRunning = false;
+  bool _tunnelRunning = false;
+  bool _busy = false;
+  bool _systemDark =
+      PlatformDispatcher.instance.platformBrightness == Brightness.dark;
+
+  GlobalConfig get config => _config;
+  List<Workspace> get workspaces => _workspaces;
+  List<SkillEntry> get skills => _skills;
+  List<DownstreamMcpEntry> get mcps => _mcps;
+  List<DoctorCheck> get doctorChecks => _doctorChecks;
+  bool get doctorRunning => _doctorRunning;
+  String? get doctorRunningTitle => _doctorRunningTitle;
+  AppPage get currentPage => _currentPage;
+  String? get selectedWorkspaceUuid => _selectedWorkspaceUuid;
+  String? get lastError => _lastError;
+
+  /// 供横幅展示的一行摘要，不含 cloudflared 完整日志。
+  String? get lastErrorSummary {
+    final error = _lastError;
+    if (error == null) return null;
+    var line = error.split(RegExp(r'\r?\n')).first.trim();
+    const prefix = 'Exception: ';
+    if (line.startsWith(prefix)) line = line.substring(prefix.length);
+    return line.isEmpty ? error : line;
+  }
+
+  bool get lastErrorIsTunnel {
+    final text = (lastErrorSummary ?? '').toLowerCase();
+    return text.contains('cloudflared') ||
+        text.contains('tunnel') ||
+        (lastErrorSummary ?? '').contains('隧道');
+  }
+
+  bool get initialized => _initialized;
+  bool get serverRunning => _serverRunning;
+  bool get tunnelRunning => _tunnelRunning;
+  bool get busy => _busy;
+  bool get isFirstRun => !_config.firstRunCompleted;
+  bool get darkMode => _config.darkMode ?? _systemDark;
+
+  Workspace? get selectedWorkspace {
+    if (_selectedWorkspaceUuid == null) return null;
+    return _workspaces.firstWhereOrNull(
+      (item) => item.uuid == _selectedWorkspaceUuid,
+    );
+  }
+
+  Future<void> init() async {
+    if (_initialized) return;
+
+    Hive.init(await AppPaths.configDir);
+    Hive.registerAdapter(GlobalConfigAdapter());
+    Hive.registerAdapter(WorkspaceAdapter());
+    Hive.registerAdapter(SkillEntryAdapter());
+    Hive.registerAdapter(DownstreamMcpEntryAdapter());
+    await ConfigStore.init();
+
+    _config = ConfigStore.getGlobalConfig();
+    mcpServer.setWidgetDomain(_config.widgetOrigin);
+    _workspaces = ConfigStore.getWorkspaces();
+    _skills = ConfigStore.getSkills();
+    _mcps = ConfigStore.getMcps();
+
+    capabilities.syncSkills(_skills);
+    capabilities.addListener(notifyListeners);
+    logStore.addListener(notifyListeners);
+
+    _initialized = true;
+    notifyListeners();
+
+    unawaited(capabilities.syncMcps(_mcps));
+    if (_config.firstRunCompleted) {
+      unawaited(startServices());
+    }
+  }
+
+  void setCurrentPage(AppPage page) {
+    _currentPage = page;
+    _selectedWorkspaceUuid = null;
+    notifyListeners();
+  }
+
+  void selectWorkspace(String uuid) {
+    _selectedWorkspaceUuid = uuid;
+    notifyListeners();
+  }
+
+  void backToHome() {
+    _selectedWorkspaceUuid = null;
+    _currentPage = AppPage.home;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _lastError = null;
+    notifyListeners();
+  }
+
+  Future<void> toggleDarkMode() async {
+    await saveGlobalConfig(_config.copyWith(darkMode: !darkMode));
+  }
+
+  void syncSystemTheme() {
+    final systemDark =
+        PlatformDispatcher.instance.platformBrightness == Brightness.dark;
+    if (systemDark == _systemDark) return;
+    _systemDark = systemDark;
+    if (_config.darkMode == null) notifyListeners();
+  }
+
+  Future<void> saveGlobalConfig(GlobalConfig config) async {
+    _config = config;
+    mcpServer.setWidgetDomain(_config.widgetOrigin);
+    await ConfigStore.saveGlobalConfig(config);
+    notifyListeners();
+  }
+
+  Future<void> completeFirstRun(GlobalConfig config) async {
+    await saveGlobalConfig(config.copyWith(firstRunCompleted: true));
+    await startServices();
+  }
+
+  Future<Workspace> createWorkspace({
+    required String name,
+    required String projectRoot,
+    bool autoStart = true,
+  }) async {
+    final now = DateTime.now();
+    final workspace = Workspace(
+      uuid: const Uuid().v4(),
+      name: name,
+      projectRoot: projectRoot,
+      autoStart: autoStart,
+      createdAt: now,
+      lastActiveAt: now,
+    );
+    _workspaces = [..._workspaces, workspace];
+    await ConfigStore.saveWorkspace(workspace);
+    _registerHandler(workspace);
+    notifyListeners();
+    return workspace;
+  }
+
+  Future<void> updateWorkspace(Workspace workspace) async {
+    _workspaces = _workspaces
+        .map((item) => item.uuid == workspace.uuid ? workspace : item)
+        .toList();
+    await ConfigStore.saveWorkspace(workspace);
+    _registerHandler(workspace);
+    notifyListeners();
+  }
+
+  Future<void> deleteWorkspace(String uuid) async {
+    _workspaces = _workspaces.where((item) => item.uuid != uuid).toList();
+    await ConfigStore.deleteWorkspace(uuid);
+    mcpServer.removeWorkspace(uuid);
+    logStore.clear(uuid);
+    if (_selectedWorkspaceUuid == uuid) _selectedWorkspaceUuid = null;
+    notifyListeners();
+  }
+
+  Future<void> toggleWorkspace(String uuid, bool enabled) async {
+    final workspace = _workspaces.firstWhereOrNull((item) => item.uuid == uuid);
+    if (workspace == null) return;
+    await updateWorkspace(workspace.copyWith(enabled: enabled));
+  }
+
+  bool isWorkspaceLive(String uuid) {
+    return _serverRunning && mcpServer.hasWorkspace(uuid);
+  }
+
+  int runningProcessCount(String uuid) {
+    return mcpServer.handlerOf(uuid)?.processManager.runningCount ?? 0;
+  }
+
+  List<McpLogEntry> workspaceLogs(String uuid) => logStore.entriesOf(uuid);
+
+  List<McpLogEntry> recentLogs(String uuid, int count) =>
+      logStore.recentOf(uuid, count);
+
+  void clearWorkspaceLogs(String uuid) => logStore.clearEntries(uuid);
+
+  String? latestToolPurpose(String uuid) => logStore.latestToolPurposeOf(uuid);
+
+  WorkspaceLogStats workspaceStats(String uuid) => logStore.statsOf(uuid);
+
+  String workspaceUrl(String uuid) => _config.workspaceUrl(uuid);
+
+  Future<void> saveSkill(SkillEntry skill) async {
+    final index = _skills.indexWhere((item) => item.name == skill.name);
+    if (index >= 0) {
+      _skills = List.of(_skills)..[index] = skill;
+    } else {
+      _skills = [..._skills, skill];
+    }
+    _skills.sort((left, right) => left.name.compareTo(right.name));
+    await ConfigStore.saveSkill(skill);
+    capabilities.syncSkills(_skills);
+    notifyListeners();
+  }
+
+  Future<void> deleteSkill(String name) async {
+    _skills = _skills.where((item) => item.name != name).toList();
+    await ConfigStore.deleteSkill(name);
+    capabilities.syncSkills(_skills);
+    notifyListeners();
+  }
+
+  Future<void> toggleSkill(String name, bool enabled) async {
+    final skill = _skills.firstWhereOrNull((item) => item.name == name);
+    if (skill == null) return;
+    await saveSkill(skill.copyWith(enabled: enabled));
+  }
+
+  Future<void> saveMcp(DownstreamMcpEntry mcp) async {
+    final index = _mcps.indexWhere((item) => item.name == mcp.name);
+    if (index >= 0) {
+      _mcps = List.of(_mcps)..[index] = mcp;
+    } else {
+      _mcps = [..._mcps, mcp];
+    }
+    _mcps.sort((left, right) => left.name.compareTo(right.name));
+    await ConfigStore.saveMcp(mcp);
+    notifyListeners();
+    await capabilities.syncMcps(_mcps);
+  }
+
+  Future<void> deleteMcp(String name) async {
+    _mcps = _mcps.where((item) => item.name != name).toList();
+    await ConfigStore.deleteMcp(name);
+    notifyListeners();
+    await capabilities.syncMcps(_mcps);
+  }
+
+  Future<void> toggleMcp(String name, bool enabled) async {
+    final mcp = _mcps.firstWhereOrNull((item) => item.name == name);
+    if (mcp == null) return;
+    await saveMcp(
+      DownstreamMcpEntry(
+        name: mcp.name,
+        transportJson: mcp.transportJson,
+        enabled: enabled,
+        source: mcp.source,
+        startupTimeoutMs: mcp.startupTimeoutMs,
+        toolTimeoutMs: mcp.toolTimeoutMs,
+      ),
+    );
+  }
+
+  Future<void> reconnectMcp(String name) async {
+    await capabilities.reconnect(name);
+  }
+
+  /// 启动本地 HttpServer 并按需拉起长驻 Tunnel
+  Future<void> startServices() async {
+    if (_busy) return;
+    _busy = true;
+    _lastError = null;
+    notifyListeners();
+
+    try {
+      await _startServer();
+      if (_config.useCloudflared) await _startTunnel();
+    } catch (error) {
+      _lastError = '$error';
+      debugPrint('启动服务失败: $error');
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> restartServices() async {
+    await stopServices();
+    await startServices();
+  }
+
+  Future<void> restartTunnel() async {
+    if (_busy || !_config.useCloudflared) return;
+    _busy = true;
+    _lastError = null;
+    notifyListeners();
+
+    try {
+      await _stopTunnel();
+      await _startTunnel();
+    } catch (error) {
+      _lastError = '$error';
+      debugPrint('重启 Tunnel 失败: $error');
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> stopServices() async {
+    await _stopTunnel();
+    await mcpServer.stop();
+    _serverRunning = false;
+    notifyListeners();
+  }
+
+  Future<void> runDoctor() async {
+    if (_doctorRunning) return;
+    _doctorRunning = true;
+    _doctorRunningTitle = null;
+    notifyListeners();
+
+    try {
+      _doctorChecks = await doctorService.runAll(
+        config: _config,
+        workspaces: _workspaces,
+        serverRunning: _serverRunning,
+        tunnelRunning: _tunnelRunning,
+        onCheckStart: (title) {
+          _doctorRunningTitle = title;
+          notifyListeners();
+        },
+        onCheckComplete: (check) {
+          final index = _doctorChecks.indexWhere(
+            (item) => item.title == check.title,
+          );
+          if (index >= 0) {
+            _doctorChecks = List.of(_doctorChecks)..[index] = check;
+          } else {
+            _doctorChecks = [..._doctorChecks, check];
+          }
+          notifyListeners();
+        },
+      );
+    } finally {
+      _doctorRunning = false;
+      _doctorRunningTitle = null;
+      notifyListeners();
+    }
+  }
+
+  Future<void> shutdown() async {
+    await _stopTunnel();
+    await mcpServer.stop();
+    await capabilities.shutdown();
+    _serverRunning = false;
+  }
+
+  Future<void> _startServer() async {
+    if (_serverRunning) return;
+
+    final port = await AppPaths.findAvailablePort(_config.port);
+    if (port != _config.port) {
+      await saveGlobalConfig(_config.copyWith(port: port));
+    }
+
+    await mcpServer.start(host: _config.host, port: port);
+    _serverRunning = true;
+    for (final workspace in _workspaces) {
+      _registerHandler(workspace);
+    }
+  }
+
+  Future<void> _startTunnel() async {
+    if (_tunnelRunning) return;
+    final bin = _config.cloudflaredBin ?? await AppPaths.cloudflaredPath;
+    final tunnelId = _config.tunnelId;
+    if (tunnelId == null || tunnelId.isEmpty) {
+      throw Exception('尚未创建 Cloudflare Tunnel');
+    }
+    if (!await File(bin).exists()) {
+      throw Exception('Cloudflared 不存在：$bin');
+    }
+
+    await _writeTunnelConfig(tunnelId);
+    await tunnelService.start(
+      bin: bin,
+      tunnelId: tunnelId,
+      configPath: await AppPaths.cloudflaredConfigPath,
+      hostname: _config.domain,
+    );
+    _tunnelRunning = true;
+  }
+
+  Future<void> _stopTunnel() async {
+    if (!_tunnelRunning) return;
+    await tunnelService.stop();
+    _tunnelRunning = false;
+  }
+
+  /// 每次启动都按当前端口重写 yml，避免端口变化后隧道指向旧端口
+  Future<void> _writeTunnelConfig(String tunnelId) async {
+    final credentialsFile = await AppPaths.credentialsPath(tunnelId);
+    final configPath = await AppPaths.cloudflaredConfigPath;
+
+    await File(configPath).writeAsString(
+      TunnelConfigYml.build(
+        tunnelId: tunnelId,
+        credentialsFile: credentialsFile,
+        hostname: _config.domain,
+        serviceUrl: _config.localServiceUrl,
+      ),
+    );
+
+    final credentials = File(credentialsFile);
+    if (await credentials.exists()) return;
+
+    final legacyPath = p.join(await AppPaths.configDir, '$tunnelId.json');
+    final legacy = File(legacyPath);
+    if (await legacy.exists()) {
+      await credentials.parent.create(recursive: true);
+      await legacy.rename(credentialsFile);
+    }
+  }
+
+  void _registerHandler(Workspace workspace) {
+    if (!_serverRunning) return;
+    if (!workspace.enabled) {
+      mcpServer.removeWorkspace(workspace.uuid);
+      return;
+    }
+    final handler = mcpServer.addWorkspace(
+      workspace: workspace,
+      logStore: logStore,
+      capabilities: capabilities,
+    );
+    handler.processManager.addListener(notifyListeners);
+  }
+
+  @override
+  void dispose() {
+    capabilities.removeListener(notifyListeners);
+    logStore.removeListener(notifyListeners);
+    logStore.dispose();
+    super.dispose();
+  }
+}
