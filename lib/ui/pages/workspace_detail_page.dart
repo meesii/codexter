@@ -1,4 +1,3 @@
-import 'package:flutter/services.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import '../../stores/app_state.dart';
 import '../theme/app_theme.dart';
@@ -7,6 +6,7 @@ import '../widgets/app_spacing.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/create_workspace_dialog.dart';
 import '../widgets/log_timeline.dart';
+import '../widgets/mcp_connection_dialog.dart';
 import '../widgets/terminal_panel.dart';
 
 /// 工作区详情：连接信息 + 实时日志 / 运行终端
@@ -49,12 +49,10 @@ class _WorkspaceDetailPageState extends State<WorkspaceDetailPage> {
           },
           onEdit: () =>
               CreateWorkspaceDialog.showEdit(context, appState, workspace),
-          onCopy: () {
-            Clipboard.setData(
-              ClipboardData(text: appState.workspaceUrl(workspace.uuid)),
-            );
-            AppToast.success(context, 'MCP 地址已复制');
-          },
+          onConnect: () => McpConnectionDialog.show(
+            context,
+            appState.workspaceUrl(workspace.uuid),
+          ),
         ),
       ],
       child: _tabIndex == 0
@@ -119,13 +117,13 @@ class _WorkspaceHeaderActions extends StatelessWidget {
   final bool live;
   final VoidCallback onToggle;
   final VoidCallback onEdit;
-  final VoidCallback onCopy;
+  final VoidCallback onConnect;
 
   const _WorkspaceHeaderActions({
     required this.live,
     required this.onToggle,
     required this.onEdit,
-    required this.onCopy,
+    required this.onConnect,
   });
 
   @override
@@ -175,7 +173,7 @@ class _WorkspaceHeaderActions extends StatelessWidget {
         ),
         const Gap(AppSpacing.sm),
         AppTooltip(
-          message: '复制 MCP URL',
+          message: '连接 ChatGPT',
           child: SizedBox(
             width: _controlHeight,
             height: _controlHeight,
@@ -184,7 +182,7 @@ class _WorkspaceHeaderActions extends StatelessWidget {
                 density: ButtonDensity.icon,
                 size: ButtonSize.normal,
               ),
-              onPressed: onCopy,
+              onPressed: onConnect,
               child: const Icon(BootstrapIcons.link45deg, size: 14),
             ),
           ),

@@ -218,17 +218,29 @@ class AppStat extends StatelessWidget {
 class AppCopyField extends StatelessWidget {
   final String value;
   final IconData icon;
+  final bool selectable;
+  final int maxLines;
+  final bool compact;
 
   const AppCopyField({
     super.key,
     required this.value,
     this.icon = BootstrapIcons.link45deg,
+    this.selectable = false,
+    this.maxLines = 1,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
+    final valueText = AppMonoText(
+      value,
+      size: 11,
+      selectable: selectable,
+      maxLines: maxLines,
+    );
+    final field = Container(
       padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 5, AppSpacing.xs, 5),
       decoration: BoxDecoration(
         color: AppTones.surfaceSunken(theme),
@@ -236,6 +248,7 @@ class AppCopyField extends StatelessWidget {
         border: Border.all(color: AppTones.borderSubtle(theme)),
       ),
       child: Row(
+        mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           AppLineIcon(
@@ -245,7 +258,10 @@ class AppCopyField extends StatelessWidget {
             color: theme.colorScheme.mutedForeground,
           ),
           const Gap(AppSpacing.sm),
-          Expanded(child: AppMonoText(value, size: 11)),
+          if (compact)
+            Flexible(child: valueText)
+          else
+            Expanded(child: valueText),
           const Gap(AppSpacing.xs),
           AppIconButton(
             icon: BootstrapIcons.clipboard,
@@ -258,6 +274,9 @@ class AppCopyField extends StatelessWidget {
         ],
       ),
     );
+
+    if (!compact) return field;
+    return Align(alignment: Alignment.centerLeft, child: field);
   }
 }
 
