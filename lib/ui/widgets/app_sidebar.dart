@@ -121,14 +121,27 @@ class AppSidebar extends StatelessWidget {
 
     return appState.workspaces.map((workspace) {
       final live = appState.isWorkspaceLive(workspace.uuid);
-      final latestPurpose = appState.latestToolPurpose(workspace.uuid);
+      final activeTool = appState.activeTool(workspace.uuid);
+      final latestTool = appState.latestTool(workspace.uuid);
+      final processing = live &&
+          (activeTool != null || (latestTool?.pending ?? false));
+      final caption = !live
+          ? '已停止'
+          : activeTool != null
+          ? '正在执行 ${activeTool.purpose ?? activeTool.title}'
+          : latestTool?.pending == true && latestTool?.toolName == 'summary'
+          ? '正在整理本轮结果'
+          : latestTool?.toolName == 'summary' && latestTool?.pending == false
+          ? '本轮已完成'
+          : '等待调用';
       return _NavItem(
         leading: AppStatusDot(
           tone: live ? AppStatusTone.live : AppStatusTone.idle,
           size: 7,
+          glow: processing,
         ),
         label: workspace.name,
-        caption: latestPurpose ?? (live ? '等待调用' : '已停止'),
+        caption: caption,
         active: appState.selectedWorkspaceUuid == workspace.uuid,
         onPressed: () => appState.selectWorkspace(workspace.uuid),
       );
@@ -257,11 +270,13 @@ class _NavItemState extends State<_NavItem> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final background = widget.active
-        ? theme.colorScheme.foreground.withValues(alpha: 0.11)
+        ? AppTones.interactionSurface(theme)
         : _hovered
         ? theme.colorScheme.foreground.withValues(alpha: 0.07)
         : Colors.transparent;
-    final foreground = widget.active || _hovered
+    final foreground = widget.active
+        ? AppTones.interaction(theme)
+        : _hovered
         ? theme.colorScheme.foreground
         : theme.colorScheme.mutedForeground;
 
@@ -373,7 +388,7 @@ class _ServiceFooter extends StatelessWidget {
         children: [
           _StatusCard(
             tone: serverTone,
-            icon: BootstrapIcons.hddRack,
+            icon: LucideIcons.server,
             label: '本地服务',
             value: appState.serverRunning
                 ? '${appState.config.host}:${appState.config.port}'
@@ -382,7 +397,7 @@ class _ServiceFooter extends StatelessWidget {
           const Gap(AppSpacing.sm),
           _StatusCard(
             tone: tunnelTone,
-            icon: BootstrapIcons.cloud,
+            icon: LucideIcons.cloud,
             label: 'Tunnel',
             value: !appState.config.useCloudflared
                 ? '公网访问已关闭'
@@ -458,9 +473,9 @@ class _StatusCard extends StatelessWidget {
       height: _height,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: theme.colorScheme.background,
+        color: AppTones.serviceCardSurface(theme),
         borderRadius: BorderRadius.circular(theme.radiusMd),
-        border: Border.all(color: AppTones.borderSubtle(theme)),
+        border: Border.all(color: AppTones.borderFaint(theme)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -475,16 +490,13 @@ class _StatusCard extends StatelessWidget {
                   width: _iconSize,
                   height: _iconSize,
                   decoration: BoxDecoration(
-                    color: toneColor.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(theme.radiusSm),
-                    border: Border.all(
-                      color: toneColor.withValues(alpha: 0.18),
-                    ),
+                    color: toneColor.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(theme.radiusMd),
                   ),
                   child: Icon(
                     icon,
-                    size: 15,
-                    color: toneColor.withValues(alpha: 0.92),
+                    size: 16,
+                    color: toneColor.withValues(alpha: 0.94),
                   ),
                 ),
                 Positioned(
@@ -493,7 +505,7 @@ class _StatusCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.background,
+                      color: AppTones.serviceCardSurface(theme),
                       shape: BoxShape.circle,
                     ),
                     child: AppStatusDot(tone: tone, size: 6),

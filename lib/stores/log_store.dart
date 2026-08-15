@@ -26,10 +26,25 @@ class LogStore extends ChangeNotifier {
   }
 
   String? latestToolPurposeOf(String workspaceUuid) {
+    return latestToolOf(workspaceUuid)?.purpose;
+  }
+
+  McpLogEntry? latestToolOf(String workspaceUuid) {
     final queue = _entries[workspaceUuid];
     if (queue == null) return null;
     for (final entry in queue.toList(growable: false).reversed) {
-      if (entry.isToolCall) return entry.purpose;
+      if (entry.isToolCall) return entry;
+    }
+    return null;
+  }
+
+  McpLogEntry? activeToolOf(String workspaceUuid) {
+    final queue = _entries[workspaceUuid];
+    if (queue == null) return null;
+    for (final entry in queue.toList(growable: false).reversed) {
+      if (entry.isToolCall && entry.pending && entry.toolName != 'summary') {
+        return entry;
+      }
     }
     return null;
   }

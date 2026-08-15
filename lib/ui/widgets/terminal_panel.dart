@@ -14,8 +14,7 @@ import 'json_view.dart';
 class TerminalPanel extends StatefulWidget {
   final ProcessSessionManager? processManager;
   final int toolCalls;
-  final int toolCount;
-  final int logCount;
+  final int errorCount;
   final int processCount;
   final int tabIndex;
   final ValueChanged<int> onTabChanged;
@@ -24,8 +23,7 @@ class TerminalPanel extends StatefulWidget {
     super.key,
     required this.processManager,
     required this.toolCalls,
-    required this.toolCount,
-    required this.logCount,
+    required this.errorCount,
     required this.processCount,
     required this.tabIndex,
     required this.onTabChanged,
@@ -94,18 +92,16 @@ class _TerminalPanelState extends State<TerminalPanel> {
                   ),
                   const Gap(AppSpacing.lg),
                   AppStat(
-                    icon: BootstrapIcons.tools,
-                    value: '${widget.toolCount} 个工具',
-                  ),
-                  const Gap(AppSpacing.lg),
-                  AppStat(
-                    icon: BootstrapIcons.activity,
-                    value: '${widget.logCount} 条日志',
+                    icon: BootstrapIcons.exclamationCircle,
+                    value: '${widget.errorCount} 次异常',
+                    color: widget.errorCount > 0
+                        ? theme.colorScheme.destructive
+                        : null,
                   ),
                   const Gap(AppSpacing.lg),
                   AppStat(
                     icon: BootstrapIcons.terminal,
-                    value: '${widget.processCount} 个进程',
+                    value: '${widget.processCount} 个运行进程',
                   ),
                 ],
               ),
@@ -126,7 +122,12 @@ class _TerminalPanelState extends State<TerminalPanel> {
                   subtitle: 'ChatGPT 通过 exec_command 启动的进程会显示在这里，可随时手动结束。',
                 )
               : ListView.builder(
-                  padding: AppSpacing.pagePadding,
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.workspaceDetailContentHorizontal,
+                    AppSpacing.xl,
+                    AppSpacing.workspaceDetailContentHorizontal,
+                    AppSpacing.x2l,
+                  ),
                   itemCount: processes.length,
                   itemBuilder: (context, index) =>
                       _TerminalCard(manager: manager, info: processes[index]),

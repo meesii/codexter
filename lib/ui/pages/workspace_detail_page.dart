@@ -59,7 +59,7 @@ class _WorkspaceDetailPageState extends State<WorkspaceDetailPage> {
           ? LogTimeline(
               entries: appState.workspaceLogs(workspace.uuid),
               toolCalls: stats.toolCalls,
-              toolCount: handler?.tools.count ?? 0,
+              errorCount: stats.errors,
               processCount: appState.runningProcessCount(workspace.uuid),
               tabIndex: _tabIndex,
               onTabChanged: (index) => setState(() => _tabIndex = index),
@@ -71,8 +71,7 @@ class _WorkspaceDetailPageState extends State<WorkspaceDetailPage> {
           : TerminalPanel(
               processManager: handler?.processManager,
               toolCalls: stats.toolCalls,
-              toolCount: handler?.tools.count ?? 0,
-              logCount: appState.workspaceLogs(workspace.uuid).length,
+              errorCount: stats.errors,
               processCount: appState.runningProcessCount(workspace.uuid),
               tabIndex: _tabIndex,
               onTabChanged: (index) => setState(() => _tabIndex = index),

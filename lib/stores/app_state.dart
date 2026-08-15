@@ -314,6 +314,10 @@ class AppState extends ChangeNotifier {
 
   String? latestToolPurpose(String uuid) => logStore.latestToolPurposeOf(uuid);
 
+  McpLogEntry? latestTool(String uuid) => logStore.latestToolOf(uuid);
+
+  McpLogEntry? activeTool(String uuid) => logStore.activeToolOf(uuid);
+
   WorkspaceLogStats workspaceStats(String uuid) => logStore.statsOf(uuid);
 
   String workspaceUrl(String uuid) => _config.workspaceUrl(uuid);

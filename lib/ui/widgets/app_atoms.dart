@@ -10,8 +10,14 @@ enum AppStatusTone { live, idle, error, warn }
 class AppStatusDot extends StatelessWidget {
   final AppStatusTone tone;
   final double size;
+  final bool glow;
 
-  const AppStatusDot({super.key, required this.tone, this.size = 8});
+  const AppStatusDot({
+    super.key,
+    required this.tone,
+    this.size = 8,
+    this.glow = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +35,7 @@ class AppStatusDot extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        boxShadow: tone == AppStatusTone.idle
+        boxShadow: tone == AppStatusTone.idle || !glow
             ? null
             : [
                 BoxShadow(

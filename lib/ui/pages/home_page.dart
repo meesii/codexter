@@ -142,7 +142,16 @@ class WorkspaceCard extends StatelessWidget {
     final theme = Theme.of(context);
     final live = appState.isWorkspaceLive(workspace.uuid);
     final stats = appState.workspaceStats(workspace.uuid);
-    final recent = appState.recentLogs(workspace.uuid, 4);
+    final toolLogs = appState
+        .workspaceLogs(workspace.uuid)
+        .where((entry) => entry.isToolCall)
+        .toList(growable: false);
+    final recent = toolLogs.length <= 4
+        ? toolLogs
+        : toolLogs.sublist(toolLogs.length - 4);
+    final currentErrorCount = toolLogs
+        .where((entry) => !entry.pending && !entry.success)
+        .length;
 
     return AppCard(
       onTap: () => appState.selectWorkspace(workspace.uuid),
@@ -188,27 +197,20 @@ class WorkspaceCard extends StatelessWidget {
                       label: live ? '运行中' : '已停止',
                       color: live ? AppTones.success : null,
                     ),
-                    const Gap(AppSpacing.sm),
+                    const Gap(AppSpacing.md),
                     Switch(
                       value: workspace.enabled,
                       onChanged: (value) =>
                           appState.toggleWorkspace(workspace.uuid, value),
                     ),
-                    const Gap(AppSpacing.sm),
-                    AppIconButton(
-                      icon: BootstrapIcons.pencil,
-                      tooltip: '修改工作区',
-                      onPressed: () => CreateWorkspaceDialog.showEdit(
+                    const Gap(AppSpacing.md),
+                    _WorkspaceMoreButton(
+                      onEdit: () => CreateWorkspaceDialog.showEdit(
                         context,
                         appState,
                         workspace,
                       ),
-                    ),
-                    const Gap(AppSpacing.xs),
-                    AppIconButton(
-                      icon: BootstrapIcons.trash,
-                      tooltip: '删除工作区',
-                      onPressed: () => _confirmDelete(context),
+                      onDelete: () => _confirmDelete(context),
                     ),
                   ],
                 ),
@@ -230,8 +232,10 @@ class WorkspaceCard extends StatelessWidget {
               const Gap(AppSpacing.lg),
               AppStat(
                 icon: BootstrapIcons.exclamationCircle,
-                value: '${stats.errors} 次错误',
-                color: stats.errors > 0 ? theme.colorScheme.destructive : null,
+                value: '$currentErrorCount 次异常',
+                color: currentErrorCount > 0
+                    ? theme.colorScheme.destructive
+                    : null,
               ),
               if (stats.lastActiveAt != null) ...[
                 const Gap(AppSpacing.lg),
@@ -265,6 +269,84 @@ class WorkspaceCard extends StatelessWidget {
       if (!context.mounted) return;
       AppToast.success(context, '工作区已删除');
     }
+  }
+}
+
+class _WorkspaceMoreButton extends StatefulWidget {
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _WorkspaceMoreButton({required this.onEdit, required this.onDelete});
+
+  @override
+  State<_WorkspaceMoreButton> createState() => _WorkspaceMoreButtonState();
+}
+
+class _WorkspaceMoreButtonState extends State<_WorkspaceMoreButton> {
+  bool _menuOpen = false;
+
+  Future<void> _showMenu() async {
+    if (_menuOpen) return;
+    setState(() => _menuOpen = true);
+    final result = showDropdown<void>(
+      context: context,
+      alignment: Alignment.topRight,
+      anchorAlignment: Alignment.bottomRight,
+      offset: const Offset(0, 4),
+      builder: (_) => SizedBox(
+        width: 148,
+        child: DropdownMenu(
+          surfaceOpacity: 0.98,
+          surfaceBlur: 12,
+          children: [
+            MenuButton(
+              onPressed: (_) => widget.onEdit(),
+              child: const Row(
+                children: [
+                  Icon(BootstrapIcons.pencil, size: 13),
+                  Gap(AppSpacing.sm),
+                  Text('修改工作区'),
+                ],
+              ),
+            ),
+            const MenuDivider(),
+            MenuButton(
+              onPressed: (_) => widget.onDelete(),
+              child: Row(
+                children: [
+                  Icon(
+                    BootstrapIcons.trash,
+                    size: 13,
+                    color: Theme.of(context).colorScheme.destructive,
+                  ),
+                  const Gap(AppSpacing.sm),
+                  Text(
+                    '删除工作区',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.destructive,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    try {
+      await result.future;
+    } finally {
+      if (mounted) setState(() => _menuOpen = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppIconButton(
+      icon: BootstrapIcons.threeDots,
+      tooltip: '更多操作',
+      onPressed: _showMenu,
+    );
   }
 }
 
@@ -302,11 +384,20 @@ class _ActivityLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tone = entry.pending
-        ? AppTones.warning
-        : entry.success
-        ? AppTones.success
-        : theme.colorScheme.destructive;
+    final displayText = entry.purpose ?? entry.argsSummary;
+    final rawArgs = entry.argsSummary;
+    final activityText = entry.purpose != null
+        ? Text(
+            displayText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTones.body(
+              theme,
+              size: 10,
+              color: theme.colorScheme.mutedForeground,
+            ),
+          )
+        : AppMonoText(displayText, size: 10);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -323,19 +414,25 @@ class _ActivityLine extends StatelessWidget {
           const Gap(AppSpacing.sm),
           SizedBox(width: 56, child: AppMonoText(entry.clockText, size: 10)),
           SizedBox(
-            width: 132,
+            width: 104,
             child: AppMonoText(
               entry.title,
               size: 10,
               color: theme.colorScheme.foreground,
             ),
           ),
-          Expanded(child: AppMonoText(entry.argsSummary, size: 10)),
+          Expanded(
+            child: entry.purpose != null && rawArgs.isNotEmpty
+                ? AppTooltip(message: rawArgs, child: activityText)
+                : activityText,
+          ),
           const Gap(AppSpacing.sm),
           AppMonoText(
             entry.pending ? '…' : entry.durationText,
             size: 10,
-            color: tone,
+            color: entry.pending
+                ? AppTones.warning
+                : AppTones.metricText(theme),
           ),
         ],
       ),

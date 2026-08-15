@@ -74,8 +74,9 @@ class AppSwitchTheme extends StatelessWidget {
         activeColor: theme.colorScheme.primary,
         inactiveColor: theme.colorScheme.input,
         activeThumbColor: theme.colorScheme.primaryForeground,
-        inactiveThumbColor:
-            dark ? theme.colorScheme.foreground : theme.colorScheme.background,
+        inactiveThumbColor: dark
+            ? theme.colorScheme.foreground
+            : theme.colorScheme.background,
       ),
       child: child,
     );
@@ -90,20 +91,56 @@ class AppTones {
   static const warning = Color(0xFFD97706);
   static const info = Color(0xFF2563EB);
 
+  /// 交互强调色与状态色分离：绿色只表达成功/运行，蓝色表达选中与可交互。
+  static Color interaction(ThemeData theme) {
+    return theme.colorScheme.brightness == Brightness.dark
+        ? const Color(0xFF60A5FA)
+        : info;
+  }
+
+  static Color interactionSurface(ThemeData theme) {
+    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.12 : 0.07;
+    return interaction(theme).withValues(alpha: alpha);
+  }
+
+  /// 日志耗时使用独立的蓝灰色，和普通 muted 文本拉开层级。
+  static Color metricText(ThemeData theme) {
+    return theme.colorScheme.brightness == Brightness.dark
+        ? const Color(0xFF86A6D7)
+        : const Color(0xFF4F6FA5);
+  }
+
   static Color surfaceRaised(ThemeData theme) {
     return theme.colorScheme.brightness == Brightness.dark
         ? const Color(0xFF141414)
-        : const Color(0xFFFAFAFA);
+        : const Color(0xFFFCFCFC);
   }
 
   static Color surfaceSunken(ThemeData theme) {
     return theme.colorScheme.brightness == Brightness.dark
         ? const Color(0xFF0F0F0F)
-        : const Color(0xFFF4F4F5);
+        : const Color(0xFFF7F7F8);
   }
 
   static Color borderSubtle(ThemeData theme) {
-    return theme.colorScheme.border.withValues(alpha: 0.7);
+    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.68 : 0.44;
+    return theme.colorScheme.border.withValues(alpha: alpha);
+  }
+
+  static Color borderFaint(ThemeData theme) {
+    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.52 : 0.30;
+    return theme.colorScheme.border.withValues(alpha: alpha);
+  }
+
+  static Color logCardBorder(ThemeData theme) {
+    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.60 : 0.38;
+    return theme.colorScheme.border.withValues(alpha: alpha);
+  }
+
+  static Color serviceCardSurface(ThemeData theme) {
+    return theme.colorScheme.brightness == Brightness.dark
+        ? const Color(0xFF121212)
+        : const Color(0xFFFBFBFC);
   }
 
   static TextStyle mono(

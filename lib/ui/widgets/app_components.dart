@@ -120,6 +120,7 @@ class AppCard extends StatefulWidget {
   final EdgeInsets padding;
   final EdgeInsets margin;
   final bool selected;
+  final Color? borderColor;
 
   const AppCard({
     super.key,
@@ -128,6 +129,7 @@ class AppCard extends StatefulWidget {
     this.padding = AppSpacing.cardPadding,
     this.margin = const EdgeInsets.only(bottom: AppSpacing.md),
     this.selected = false,
+    this.borderColor,
   });
 
   @override
@@ -154,7 +156,7 @@ class _AppCardState extends State<AppCard> {
         border: Border.all(
           color: highlight
               ? theme.colorScheme.ring.withValues(alpha: 0.35)
-              : theme.colorScheme.border,
+              : widget.borderColor ?? AppTones.borderSubtle(theme),
         ),
       ),
       child: widget.child,
