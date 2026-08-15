@@ -11,7 +11,6 @@ class AppSpacing {
   static const double xl = 20;
   static const double x2l = 28;
   static const double x3l = 40;
-  static const double workspaceDetailContentHorizontal = 64;
 
   static const double sidebarWidth = 236;
   static const double sidebarMinWidth = 200;

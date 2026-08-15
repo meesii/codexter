@@ -123,9 +123,9 @@ class _TerminalPanelState extends State<TerminalPanel> {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.workspaceDetailContentHorizontal,
+                    AppSpacing.x2l,
                     AppSpacing.xl,
-                    AppSpacing.workspaceDetailContentHorizontal,
+                    AppSpacing.x2l,
                     AppSpacing.x2l,
                   ),
                   itemCount: processes.length,

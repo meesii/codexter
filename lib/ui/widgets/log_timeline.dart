@@ -295,9 +295,9 @@ class _LogTimelineState extends State<LogTimeline> {
                         ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.workspaceDetailContentHorizontal,
+                            AppSpacing.x2l,
                             AppSpacing.md,
-                            AppSpacing.workspaceDetailContentHorizontal,
+                            AppSpacing.x2l,
                             AppSpacing.x2l,
                           ),
                           itemCount: entries.length,
@@ -579,12 +579,8 @@ class _SummaryLogPanel extends StatelessWidget {
               const Gap(AppSpacing.lg),
               Text(summary, style: AppTones.body(theme, size: 13)),
             ],
-            if (fileChanges != null && fileChanges.files.isNotEmpty) ...[
-              const Gap(AppSpacing.lg),
-              _RoundFileChanges(data: fileChanges),
-            ],
             if (details.isNotEmpty) ...[
-              const Gap(AppSpacing.md),
+              const Gap(AppSpacing.lg),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -630,6 +626,10 @@ class _SummaryLogPanel extends StatelessWidget {
                 ),
               ),
             ],
+            if (fileChanges != null && fileChanges.files.isNotEmpty) ...[
+              const Gap(AppSpacing.md),
+              _RoundFileChanges(data: fileChanges),
+            ],
           ],
         ),
       ),
@@ -650,6 +650,9 @@ class _SummaryLogPanel extends StatelessWidget {
         .toList(growable: false);
   }
 }
+
+const _roundCopyColumnWidth = 28.0;
+const _roundDiffColumnWidth = 38.0;
 
 class _RoundFileChanges extends StatefulWidget {
   final _RoundFileChangeData data;
@@ -695,28 +698,41 @@ class _RoundFileChangesState extends State<_RoundFileChanges> {
                   style: AppTones.title(theme, size: 12),
                 ),
                 const Spacer(),
-                if (data.additions > 0)
-                  Text(
-                    '+${data.additions}',
-                    style: AppTones.mono(
-                      theme,
-                      size: 11,
-                      color: AppTones.success,
-                      weight: FontWeight.w600,
-                    ),
+                const SizedBox(width: _roundCopyColumnWidth),
+                SizedBox(
+                  width: _roundDiffColumnWidth,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: data.additions > 0
+                        ? Text(
+                            '+${data.additions}',
+                            style: AppTones.mono(
+                              theme,
+                              size: 11,
+                              color: AppTones.success,
+                              weight: FontWeight.w600,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
                   ),
-                if (data.additions > 0 && data.deletions > 0)
-                  const Gap(AppSpacing.sm),
-                if (data.deletions > 0)
-                  Text(
-                    '-${data.deletions}',
-                    style: AppTones.mono(
-                      theme,
-                      size: 11,
-                      color: theme.colorScheme.destructive,
-                      weight: FontWeight.w600,
-                    ),
+                ),
+                SizedBox(
+                  width: _roundDiffColumnWidth,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: data.deletions > 0
+                        ? Text(
+                            '-${data.deletions}',
+                            style: AppTones.mono(
+                              theme,
+                              size: 11,
+                              color: theme.colorScheme.destructive,
+                              weight: FontWeight.w600,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
                   ),
+                ),
               ],
             ),
           ),
@@ -800,45 +816,48 @@ class _RoundFileChangeRow extends StatelessWidget {
           ),
           const Gap(AppSpacing.xs),
           Expanded(
-            child: AppTooltip(
-              message: '点击复制路径：${item.path}',
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: item.path));
-                    AppToast.info(context, '已复制文件路径');
-                  },
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.path,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTones.mono(
-                            theme,
-                            size: 10,
-                            color: theme.colorScheme.foreground,
-                          ),
-                        ),
-                      ),
-                      const Gap(AppSpacing.xs),
-                      Icon(
+            child: Text(
+              item.path,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTones.mono(
+                theme,
+                size: 10,
+                color: theme.colorScheme.foreground,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: _roundCopyColumnWidth,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: AppTooltip(
+                message: '复制文件路径',
+                alignment: Alignment.bottomCenter,
+                anchorAlignment: Alignment.topCenter,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: item.path));
+                      AppToast.info(context, '已复制文件路径');
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
                         BootstrapIcons.copy,
                         size: 10,
                         color: theme.colorScheme.mutedForeground,
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-          const Gap(AppSpacing.md),
           SizedBox(
-            width: 46,
+            width: _roundDiffColumnWidth,
             child: Align(
               alignment: Alignment.centerRight,
               child: item.additions > 0
@@ -854,7 +873,7 @@ class _RoundFileChangeRow extends StatelessWidget {
             ),
           ),
           SizedBox(
-            width: 46,
+            width: _roundDiffColumnWidth,
             child: Align(
               alignment: Alignment.centerRight,
               child: item.deletions > 0

@@ -512,7 +512,7 @@ class _ServiceFooter extends StatelessWidget {
   }
 }
 
-class _StatusCard extends StatelessWidget {
+class _StatusCard extends StatefulWidget {
   static const _height = 60.0;
   static const _iconSize = 32.0;
 
@@ -531,95 +531,121 @@ class _StatusCard extends StatelessWidget {
   });
 
   @override
+  State<_StatusCard> createState() => _StatusCardState();
+}
+
+class _StatusCardState extends State<_StatusCard> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final toneColor = switch (tone) {
+    final toneColor = switch (widget.tone) {
       AppStatusTone.live => AppTones.success,
       AppStatusTone.warn => AppTones.warning,
       AppStatusTone.error => theme.colorScheme.destructive,
       AppStatusTone.idle => theme.colorScheme.mutedForeground,
     };
+    final baseSurface = AppTones.serviceCardSurface(theme);
+    final surface = Color.alphaBlend(
+      theme.colorScheme.foreground.withValues(alpha: _hovered ? 0.025 : 0),
+      baseSurface,
+    );
 
-    return Container(
-      height: _height,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppTones.serviceCardSurface(theme),
-        borderRadius: BorderRadius.circular(theme.radiusMd),
-        border: Border.all(color: AppTones.borderFaint(theme)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: _iconSize,
-            height: _iconSize,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: _iconSize,
-                  height: _iconSize,
-                  decoration: BoxDecoration(
-                    color: toneColor.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(theme.radiusMd),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 16,
-                    color: toneColor.withValues(alpha: 0.94),
-                  ),
-                ),
-                Positioned(
-                  right: -2,
-                  bottom: -2,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        height: _StatusCard._height,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(theme.radiusMd),
+          border: Border.all(
+            color: _hovered
+                ? AppTones.borderSubtle(theme)
+                : AppTones.borderFaint(theme),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: _StatusCard._iconSize,
+              height: _StatusCard._iconSize,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
+                    width: _StatusCard._iconSize,
+                    height: _StatusCard._iconSize,
                     decoration: BoxDecoration(
-                      color: AppTones.serviceCardSurface(theme),
-                      shape: BoxShape.circle,
+                      color: toneColor.withValues(
+                        alpha: _hovered ? 0.13 : 0.10,
+                      ),
+                      borderRadius: BorderRadius.circular(theme.radiusMd),
                     ),
-                    child: AppStatusDot(tone: tone, size: 6),
+                    child: Icon(
+                      widget.icon,
+                      size: 16,
+                      color: toneColor.withValues(alpha: 0.94),
+                    ),
                   ),
-                ),
-              ],
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: AppStatusDot(tone: widget.tone, size: 6),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Gap(AppSpacing.md),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTones.body(
-                    theme,
-                    size: 11.5,
-                  ).copyWith(fontWeight: FontWeight.w600),
-                ),
-                const Gap(2),
-                AppTooltip(
-                  message: value,
-                  alignment: Alignment.bottomCenter,
-                  anchorAlignment: Alignment.topCenter,
-                  child: AppMonoText(
-                    value,
-                    size: 10.5,
+            const Gap(AppSpacing.md),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.label,
                     maxLines: 1,
-                    color: theme.colorScheme.foreground.withValues(alpha: 0.72),
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTones.body(
+                      theme,
+                      size: 11.5,
+                    ).copyWith(fontWeight: FontWeight.w600),
                   ),
-                ),
-              ],
+                  const Gap(2),
+                  AppTooltip(
+                    message: widget.value,
+                    alignment: Alignment.bottomCenter,
+                    anchorAlignment: Alignment.topCenter,
+                    child: AppMonoText(
+                      widget.value,
+                      size: 10.5,
+                      maxLines: 1,
+                      color: theme.colorScheme.foreground.withValues(
+                        alpha: 0.72,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          if (action != null) ...[
-            const Gap(AppSpacing.sm),
-            Center(child: action!),
+            if (widget.action != null) ...[
+              const Gap(AppSpacing.sm),
+              Center(child: widget.action!),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
