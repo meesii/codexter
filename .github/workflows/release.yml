@@ -1,0 +1,128 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag，例如 v1.0.1（必须与 pubspec.yaml 版本一致）'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.44.9'
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  RELEASE_REPOSITORY: ${{ vars.RELEASE_REPOSITORY }}
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate release version
+        shell: pwsh
+        run: |
+          $line = Select-String -Path pubspec.yaml -Pattern '^version:\s*(.+)$' | Select-Object -First 1
+          if (-not $line) { throw 'Version not found in pubspec.yaml' }
+          $fullVersion = $line.Matches[0].Groups[1].Value.Trim()
+          $version = $fullVersion.Split('+')[0]
+          $expectedTag = "v$version"
+          if ($env:RELEASE_TAG -ne $expectedTag) {
+            throw "Tag $env:RELEASE_TAG does not match pubspec version $fullVersion (expected $expectedTag)"
+          }
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Releasing Codexter $fullVersion"
+
+      - name: Install Flutter
+        shell: pwsh
+        run: |
+          $flutterDir = Join-Path $env:RUNNER_TEMP 'flutter'
+          git clone --depth 1 --branch $env:FLUTTER_VERSION https://github.com/flutter/flutter.git $flutterDir
+          "$flutterDir\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Flutter info
+        shell: pwsh
+        run: flutter --version
+
+      - name: Resolve dependencies
+        shell: pwsh
+        run: flutter pub get
+
+      - name: Analyze
+        shell: pwsh
+        run: flutter analyze
+
+      - name: Test
+        shell: pwsh
+        run: flutter test
+
+      - name: Resolve release target
+        shell: pwsh
+        run: |
+          $releaseRepo = if ($env:RELEASE_REPOSITORY) { $env:RELEASE_REPOSITORY } else { $env:GITHUB_REPOSITORY }
+          $manifestUrl = '${{ vars.UPDATE_MANIFEST_URL }}'
+          if (-not $manifestUrl -and $releaseRepo -ne $env:GITHUB_REPOSITORY) {
+            $manifestUrl = "https://github.com/$releaseRepo/releases/latest/download/latest.json"
+          }
+          "TARGET_RELEASE_REPOSITORY=$releaseRepo" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "TARGET_UPDATE_MANIFEST_URL=$manifestUrl" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Release repository: $releaseRepo"
+          if ($manifestUrl) { Write-Host "Update manifest: $manifestUrl" }
+
+      - name: Build Windows packages
+        shell: pwsh
+        run: |
+          if ($env:TARGET_UPDATE_MANIFEST_URL) {
+            .\scripts\build_windows.ps1 -SkipAnalyze -UpdateManifestUrl $env:TARGET_UPDATE_MANIFEST_URL
+          } else {
+            .\scripts\build_windows.ps1 -SkipAnalyze
+          }
+
+      - name: Generate update manifest
+        shell: pwsh
+        run: |
+          .\scripts\generate_update_manifest.ps1 `
+            -Version $env:APP_VERSION `
+            -Tag $env:RELEASE_TAG `
+            -Repository $env:TARGET_RELEASE_REPOSITORY
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Codexter-${{ env.RELEASE_TAG }}-windows
+          path: |
+            dist/Codexter-*-Setup.exe
+            dist/Codexter-*-windows-x64.zip
+            dist/latest.json
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          SOURCE_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXTERNAL_RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          $env:GH_TOKEN = if ($env:EXTERNAL_RELEASE_TOKEN) { $env:EXTERNAL_RELEASE_TOKEN } else { $env:SOURCE_GITHUB_TOKEN }
+          $repo = $env:TARGET_RELEASE_REPOSITORY
+          $files = @(
+            "dist/Codexter-$env:APP_VERSION-Setup.exe",
+            "dist/Codexter-$env:APP_VERSION-windows-x64.zip",
+            'dist/latest.json'
+          )
+          gh release view $env:RELEASE_TAG --repo $repo *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG @files --clobber --repo $repo
+          } else {
+            gh release create $env:RELEASE_TAG @files `
+              --repo $repo `
+              --title "Codexter $env:APP_VERSION" `
+              --generate-notes
+          }

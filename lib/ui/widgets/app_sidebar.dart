@@ -160,7 +160,19 @@ class _BrandHeader extends StatelessWidget {
           ),
           const Gap(AppSpacing.sm),
           Expanded(
-            child: Text(appName, style: AppTones.title(theme, size: 13)),
+            child: Row(
+              children: [
+                Text(appName, style: AppTones.title(theme, size: 13)),
+                const Gap(AppSpacing.sm),
+                FutureBuilder<String>(
+                  future: AppRuntimeInfo.versionLabel,
+                  builder: (context, snapshot) => Text(
+                    snapshot.data ?? '',
+                    style: AppTones.muted(theme, size: 9),
+                  ),
+                ),
+              ],
+            ),
           ),
           AppIconButton(
             icon: appState.darkMode ? BootstrapIcons.sun : BootstrapIcons.moon,

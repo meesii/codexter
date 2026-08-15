@@ -156,6 +156,7 @@ class _CodexterAppState extends State<CodexterApp>
           theme: widget.appState.darkMode ? AppTheme.dark : AppTheme.light,
           home: AppSwitchTheme(
             child: AppWindowFrame(
+              appState: widget.appState,
               child: ToastLayer(
                 child: widget.appState.isFirstRun
                     ? FirstRunPage(appState: widget.appState)

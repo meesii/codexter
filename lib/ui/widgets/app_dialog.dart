@@ -19,6 +19,7 @@ class AppDialog {
     double? maxHeight,
     bool barrierDismissible = true,
     bool scrollContent = true,
+    bool showCloseButton = true,
   }) {
     final bodyMaxWidth = maxWidth > 48 ? maxWidth - 48 : maxWidth;
     final bodyMaxHeight = maxHeight == null
@@ -108,18 +109,20 @@ class AppDialog {
                           ),
                           actions: actions?.call(dialogContext),
                         ),
-                        Positioned(
-                          top: AppSpacing.lg,
-                          right: AppSpacing.lg,
-                          child: Button(
-                            style: ButtonStyle.outline(
-                              density: ButtonDensity.icon,
-                              size: ButtonSize.small,
+                        if (showCloseButton)
+                          Positioned(
+                            top: AppSpacing.lg,
+                            right: AppSpacing.lg,
+                            child: Button(
+                              style: ButtonStyle.outline(
+                                density: ButtonDensity.icon,
+                                size: ButtonSize.small,
+                              ),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
+                              child: const Icon(BootstrapIcons.x, size: 13),
                             ),
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Icon(BootstrapIcons.x, size: 13),
                           ),
-                        ),
                       ],
                     ),
                   ),
