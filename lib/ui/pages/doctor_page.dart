@@ -4,6 +4,7 @@ import '../../stores/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 import '../widgets/app_spacing.dart';
+import '../widgets/app_toast.dart';
 
 /// 环境检查：cloudflared、登录、Tunnel、服务、Git、工作区路径
 class DoctorPage extends StatefulWidget {
@@ -16,6 +17,8 @@ class DoctorPage extends StatefulWidget {
 }
 
 class _DoctorPageState extends State<DoctorPage> {
+  String? _repairingTitle;
+
   @override
   void initState() {
     super.initState();
@@ -23,6 +26,20 @@ class _DoctorPageState extends State<DoctorPage> {
   }
 
   Future<void> _runChecks() => widget.appState.runDoctor();
+
+  Future<void> _repairCheck(DoctorCheck check) async {
+    if (_repairingTitle != null) return;
+    setState(() => _repairingTitle = check.title);
+    try {
+      await widget.appState.repairDoctorCheck(check);
+      await _runChecks();
+      if (mounted) AppToast.success(context, '已修复：${check.title}');
+    } catch (error) {
+      if (mounted) AppToast.error(context, '修复失败：$error');
+    } finally {
+      if (mounted) setState(() => _repairingTitle = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,10 +81,18 @@ class _DoctorPageState extends State<DoctorPage> {
         itemCount: DoctorService.checkTitles.length,
         itemBuilder: (context, index) {
           final title = DoctorService.checkTitles[index];
+          final check = checksByTitle[title];
           return _CheckTile(
             title: title,
-            check: checksByTitle[title],
+            check: check,
             loading: running && activeTitle == title,
+            repairing: _repairingTitle == title,
+            onRepair:
+                check?.state == DoctorState.fail &&
+                    check!.repairable &&
+                    !running
+                ? () => _repairCheck(check)
+                : null,
           );
         },
       ),
@@ -79,11 +104,15 @@ class _CheckTile extends StatefulWidget {
   final String title;
   final DoctorCheck? check;
   final bool loading;
+  final bool repairing;
+  final VoidCallback? onRepair;
 
   const _CheckTile({
     required this.title,
     required this.check,
     required this.loading,
+    required this.repairing,
+    this.onRepair,
   });
 
   @override
@@ -190,9 +219,9 @@ class _CheckTileState extends State<_CheckTile> {
                 ),
               ],
             ),
-            const Gap(AppSpacing.md),
+            const Gap(AppSpacing.sm),
             SizedBox(
-              height: 34,
+              height: 30,
               child: AppMonoText(
                 detail,
                 size: 10.5,
@@ -202,15 +231,40 @@ class _CheckTileState extends State<_CheckTile> {
             ),
             const Gap(AppSpacing.xs),
             SizedBox(
-              height: 28,
-              child: hint == null
-                  ? const SizedBox.shrink()
-                  : Text(
-                      '建议：$hint',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTones.muted(theme, size: 10),
+              height: 30,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned.fill(
+                    right: widget.onRepair == null ? 0 : 66,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: hint == null
+                          ? const SizedBox.shrink()
+                          : Text(
+                              '建议：$hint',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTones.muted(theme, size: 10),
+                            ),
                     ),
+                  ),
+                  if (widget.onRepair != null)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Button(
+                        style: ButtonStyle.outline(size: ButtonSize.small),
+                        onPressed: widget.repairing ? null : widget.onRepair,
+                        child: widget.repairing
+                            ? const SizedBox.square(
+                                dimension: 12,
+                                child: CircularProgressIndicator(),
+                              )
+                            : const Text('修复'),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),

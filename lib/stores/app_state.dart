@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
-import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import '../mcp/multi_workspace_server.dart';
 import '../models/downstream_mcp_entry.dart';
@@ -15,6 +14,8 @@ import '../models/workspace.dart';
 import '../services/capability_runtime.dart';
 import '../services/doctor_service.dart';
 import '../services/notification_service.dart';
+import '../services/setup_service.dart';
+import '../services/tunnel_error_classifier.dart';
 import '../services/tunnel_service.dart';
 import '../utils/app_paths.dart';
 import 'config_store.dart';
@@ -30,6 +31,7 @@ class AppState extends ChangeNotifier {
   final CapabilityRuntime capabilities = CapabilityRuntime();
   final DoctorService doctorService = DoctorService();
   final NotificationService notificationService = NotificationService();
+  final SetupService setupService = SetupService();
 
   GlobalConfig _config = GlobalConfig();
   List<Workspace> _workspaces = [];
@@ -106,6 +108,7 @@ class AppState extends ChangeNotifier {
     await ConfigStore.init();
 
     _config = ConfigStore.getGlobalConfig();
+    await setupService.migrateLegacyCloudflareCredentials(_config.tunnelId);
     mcpServer.setWidgetDomain(_config.widgetOrigin);
     _workspaces = ConfigStore.getWorkspaces();
     _skills = ConfigStore.getSkills();
@@ -127,9 +130,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     unawaited(capabilities.syncMcps(_mcps));
-    if (_config.firstRunCompleted) {
-      unawaited(startServices());
-    }
+    // 已完成首次向导的环境由启动检测页负责启动服务，避免 UI 出现前后台静默失败。
   }
 
   void setCurrentPage(AppPage page) {
@@ -241,7 +242,6 @@ class AppState extends ChangeNotifier {
 
   Future<void> completeFirstRun(GlobalConfig config) async {
     await saveGlobalConfig(config.copyWith(firstRunCompleted: true));
-    await startServices();
   }
 
   Future<Workspace> createWorkspace({
@@ -432,6 +432,169 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 启动页使用：先尝试启动服务，再逐项执行关键环境检测。
+  Future<List<DoctorCheck>> runStartupChecks({
+    void Function(String status)? onStatus,
+    void Function(String title)? onCheckStart,
+    void Function(DoctorCheck check)? onCheckComplete,
+  }) async {
+    onStatus?.call('正在启动本地服务…');
+    await startServices();
+    onStatus?.call('正在检查运行环境…');
+    return doctorService.runStartup(
+      config: _config,
+      workspaces: _workspaces,
+      serverRunning: _serverRunning,
+      tunnelRunning: _tunnelRunning,
+      tunnelError: _lastError ?? tunnelService.logTail,
+      onCheckStart: onCheckStart,
+      onCheckComplete: onCheckComplete,
+    );
+  }
+
+  /// 环境检测页与启动检测页共用同一套修复逻辑。
+  Future<void> repairDoctorCheck(DoctorCheck check) async {
+    switch (check.issue) {
+      case TunnelIssueCode.cloudflaredMissing:
+        await setupService.downloadCloudflared();
+        await saveGlobalConfig(
+          _config.copyWith(cloudflaredBin: await AppPaths.cloudflaredPath),
+        );
+        return;
+      case TunnelIssueCode.originCertMissing:
+        await _ensureCloudflareLogin();
+        return;
+      case TunnelIssueCode.tunnelMissing:
+        await _provisionTunnelFromConfig();
+        return;
+      case TunnelIssueCode.tunnelCredentialsMissing:
+        final tunnelId = _config.tunnelId;
+        if (tunnelId == null || tunnelId.isEmpty) {
+          await _provisionTunnelFromConfig();
+          return;
+        }
+        if (!await setupService.ensureTunnelCredentials(tunnelId)) {
+          throw Exception(
+            '无法恢复 Tunnel $tunnelId 的 credentials 文件。请重新创建 Tunnel，或仍然进入主页面后在「公网服务」中处理。',
+          );
+        }
+        await _writeTunnelConfig(tunnelId);
+        await _restartServicesStrict();
+        return;
+      case TunnelIssueCode.tunnelConfigMissing:
+        final tunnelId = _config.tunnelId;
+        if (tunnelId == null || tunnelId.isEmpty) {
+          await _provisionTunnelFromConfig();
+          return;
+        }
+        await _writeTunnelConfig(tunnelId);
+        await _restartServicesStrict();
+        return;
+      case TunnelIssueCode.localServerStopped:
+      case TunnelIssueCode.originUnreachable:
+        await _restartServicesStrict();
+        return;
+      case TunnelIssueCode.tunnelStopped:
+      case TunnelIssueCode.cloudflare1033:
+      case TunnelIssueCode.timeout:
+        await _restartTunnelStrict();
+        return;
+      case TunnelIssueCode.dnsMissing:
+      case TunnelIssueCode.dnsUnauthorized:
+      case TunnelIssueCode.cloudflare1016:
+      case TunnelIssueCode.publicHttpError:
+      case TunnelIssueCode.unknown:
+        await repairPublicRoute();
+        return;
+      case TunnelIssueCode.originTlsError:
+      case TunnelIssueCode.originProtocolMismatch:
+      case TunnelIssueCode.domainMissing:
+        throw Exception(check.hint ?? '该问题需要手动修改配置');
+      case TunnelIssueCode.none:
+        return;
+    }
+  }
+
+  /// 修复公网 DNS 路由，并确保 Tunnel 重新使用当前配置运行。
+  Future<void> repairPublicRoute() async {
+    if (!_config.useCloudflared) throw Exception('Cloudflare Tunnel 未启用');
+    final domain = _config.domain.trim();
+    if (domain.isEmpty) throw Exception('尚未配置公网域名');
+    final tunnelId = _config.tunnelId;
+    if (tunnelId == null || tunnelId.isEmpty) throw Exception('尚未创建 Tunnel');
+
+    final bin = await _resolveCloudflaredBin();
+    // DNS route 必须依赖账号级 cert.pem。缺失时先登录，而不是直接执行 route dns。
+    if (!await File(await AppPaths.originCertPath).exists()) {
+      await _ensureCloudflareLogin(bin: bin);
+    }
+    await setupService.ensureDnsRoute(bin, tunnelId, domain);
+    await _restartTunnelStrict();
+  }
+
+  Future<String> _resolveCloudflaredBin() async {
+    final configured = _config.cloudflaredBin;
+    if (configured != null &&
+        configured.isNotEmpty &&
+        await File(configured).exists()) {
+      return configured;
+    }
+    final found = await setupService.findCloudflaredBin();
+    if (found == null || found.isEmpty) throw Exception('未找到 cloudflared');
+    return found;
+  }
+
+  Future<void> _ensureCloudflareLogin({String? bin, bool force = false}) async {
+    final executable = bin ?? await _resolveCloudflaredBin();
+    final login = await setupService.loginCloudflare(executable, force: force);
+    if (!login.success) throw Exception(login.error ?? 'Cloudflare 登录未完成');
+  }
+
+  Future<void> _provisionTunnelFromConfig() async {
+    final domain = _config.domain.trim();
+    if (domain.isEmpty) throw Exception('尚未配置公网域名，无法自动创建 Tunnel');
+    final bin = await _resolveCloudflaredBin();
+    await _ensureCloudflareLogin(bin: bin);
+    final tunnelId = await setupService.createTunnel(bin, _config.tunnelName);
+    await setupService.ensureDnsRoute(bin, tunnelId, domain);
+    final updated = await setupService.writeTunnelConfig(
+      _config.copyWith(cloudflaredBin: bin, useCloudflared: true),
+      tunnelId,
+    );
+    await saveGlobalConfig(updated);
+    await _restartServicesStrict();
+  }
+
+  Future<void> _restartServicesStrict() async {
+    try {
+      await _stopTunnel();
+      await mcpServer.stop();
+      _serverRunning = false;
+      _lastError = null;
+      await _startServer();
+      if (_config.useCloudflared) await _startTunnel();
+    } catch (error) {
+      _lastError = '$error';
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  Future<void> _restartTunnelStrict() async {
+    if (!_config.useCloudflared) throw Exception('Cloudflare Tunnel 未启用');
+    try {
+      await _stopTunnel();
+      _lastError = null;
+      await _startTunnel();
+    } catch (error) {
+      _lastError = '$error';
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
+  }
+
   Future<void> runDoctor() async {
     if (_doctorRunning) return;
     _doctorRunning = true;
@@ -444,6 +607,7 @@ class AppState extends ChangeNotifier {
         workspaces: _workspaces,
         serverRunning: _serverRunning,
         tunnelRunning: _tunnelRunning,
+        tunnelError: _lastError ?? tunnelService.logTail,
         onCheckStart: (title) {
           _doctorRunningTitle = title;
           notifyListeners();
@@ -530,14 +694,8 @@ class AppState extends ChangeNotifier {
       ),
     );
 
-    final credentials = File(credentialsFile);
-    if (await credentials.exists()) return;
-
-    final legacyPath = p.join(await AppPaths.configDir, '$tunnelId.json');
-    final legacy = File(legacyPath);
-    if (await legacy.exists()) {
-      await credentials.parent.create(recursive: true);
-      await legacy.rename(credentialsFile);
+    if (!await setupService.ensureTunnelCredentials(tunnelId)) {
+      throw Exception('缺少 Tunnel credentials：$credentialsFile');
     }
   }
 
