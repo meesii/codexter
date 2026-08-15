@@ -15,7 +15,7 @@ class McpConnectionDialog {
       context: context,
       title: '连接到 ChatGPT',
       description: '复制 MCP URL，然后在 ChatGPT 中创建自定义 MCP 应用。',
-      maxWidth: 640,
+      maxWidth: 520,
       content: _McpConnectionContent(url: url),
       actions: (dialogContext) => [
         Button(
