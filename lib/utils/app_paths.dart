@@ -44,9 +44,35 @@ class AppPaths {
     return p.join(await configDir, 'cloudflared.yml');
   }
 
+  /// 当前应用环境独立的 Cloudflare 凭据目录。
+  /// Debug 与 Release 会分别落在 codexter-dev / codexter 下，互不覆盖。
+  static Future<String> get cloudflareDir async {
+    final dir = p.join(await configDir, 'cloudflare');
+    await Directory(dir).create(recursive: true);
+    return dir;
+  }
+
+  static Future<String> get originCertPath async {
+    return p.join(await cloudflareDir, 'cert.pem');
+  }
+
+  /// cloudflared tunnel login 只能写默认 Home 下的 .cloudflared/cert.pem，
+  /// 因此登录时给子进程一个应用独享的临时 Home，完成后再收纳到 originCertPath。
+  static Future<String> get cloudflareLoginHome async {
+    return p.join(await cloudflareDir, '.login-home');
+  }
+
   static Future<String> credentialsPath(String tunnelId) async {
-    final cloudflaredDir = p.join(_home(), '.cloudflared');
-    return p.join(cloudflaredDir, '$tunnelId.json');
+    return p.join(await cloudflareDir, '$tunnelId.json');
+  }
+
+  /// 旧版本使用用户全局 ~/.cloudflared，保留只读迁移入口。
+  static Future<String> get legacyOriginCertPath async {
+    return p.join(_home(), '.cloudflared', 'cert.pem');
+  }
+
+  static Future<String> legacyCredentialsPath(String tunnelId) async {
+    return p.join(_home(), '.cloudflared', '$tunnelId.json');
   }
 
   static Future<int> findAvailablePort([int start = 18920]) async {

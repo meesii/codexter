@@ -295,7 +295,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
       final tunnelId = await _setupService.createTunnel(bin, tunnelName);
 
       setState(() => _status = '正在配置 DNS 路由…');
-      await _setupService.routeDns(bin, tunnelName, domain);
+      await _setupService.ensureDnsRoute(bin, tunnelId, domain);
 
       setState(() => _status = '正在写入配置…');
       final port = await AppPaths.findAvailablePort(18920);

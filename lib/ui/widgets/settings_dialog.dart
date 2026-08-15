@@ -522,9 +522,10 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
     setState(() => _saving = true);
     try {
       final tunnelName = _tunnelNameController.text.trim();
+      final domain = _setupService.normalizeDomain(_domainController.text);
       await appState.saveGlobalConfig(
         appState.config.copyWith(
-          domain: _setupService.normalizeDomain(_domainController.text),
+          domain: domain,
           host: _hostController.text.trim().isEmpty
               ? '127.0.0.1'
               : _hostController.text.trim(),
@@ -533,6 +534,17 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
           tunnelName: tunnelName.isEmpty ? 'codex-mcp' : tunnelName,
         ),
       );
+
+      final tunnelId = appState.config.tunnelId;
+      if (_useCloudflared &&
+          domain.isNotEmpty &&
+          tunnelId != null &&
+          tunnelId.isNotEmpty) {
+        final bin = await _setupService.findCloudflaredBin();
+        if (bin == null) throw Exception('未找到 cloudflared');
+        await _setupService.ensureDnsRoute(bin, tunnelId, domain);
+      }
+
       await appState.restartServices();
       if (!mounted) return;
       if (appState.lastError == null) {
@@ -540,6 +552,8 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
       } else {
         AppToast.error(context, '重启失败：${appState.lastErrorSummary}');
       }
+    } catch (error) {
+      if (mounted) AppToast.error(context, '保存失败：$error');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -558,7 +572,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
       final login = await _setupService.loginCloudflare(bin);
       if (!login.success) throw Exception(login.error ?? 'Cloudflare 登录未完成');
       final tunnelId = await _setupService.createTunnel(bin, tunnelName);
-      await _setupService.routeDns(bin, tunnelName, domain);
+      await _setupService.ensureDnsRoute(bin, tunnelId, domain);
       final updated = await _setupService.writeTunnelConfig(
         appState.config.copyWith(
           domain: domain,
