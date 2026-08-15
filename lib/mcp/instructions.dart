@@ -21,7 +21,7 @@ class ServerInstructions {
       '',
       'This MCP server exposes local coding tools for the current workspace.',
       'For every tools/call request, include `purpose`: a concise user-visible summary (max 80 characters) of what the immediate call will obtain, verify, or change. `purpose` is used by the desktop app for activity UI and is never forwarded to downstream MCP tools.',
-      'When you are finishing a user request, use `summary` so the desktop app can notify the user that this round of work has ended and show a concise summary.',
+      'Mandatory end-of-round rule: if you use any tool from this MCP server while handling the current user request, you MUST call `summary` exactly once before sending your final response to the user. Never finish an MCP-assisted request without calling `summary`.',
     ];
 
     final agents = _resolveAgents(
@@ -121,7 +121,7 @@ class ServerInstructions {
       '- write_stdin — poll a running command or send stdin/Ctrl+C using session_id.',
       '- skills_list / skill_read — discover dynamic local Skills and load SKILL.md on demand.',
       '- mcp_tools / mcp_call — discover and invoke tools from enabled downstream MCP servers.',
-      '- summary — summarize the current round for the desktop app when you are finishing a user request.',
+      '- summary — summarize the current round and notify the desktop app that the round has ended.',
     ];
   }
 
@@ -134,7 +134,6 @@ class ServerInstructions {
       '4. Use exec_command for tests, builds, git, package managers, adb, and other installed CLI tools. Do not edit source/text files through shell redirection or Get-Content/Set-Content.',
       '5. If exec_command returns session_id, continue with write_stdin; send \\u0003 to stop an interactive/long-running command when appropriate.',
       '6. Use skill_read only when a listed Skill is relevant; use mcp_tools before mcp_call when downstream capabilities are unknown.',
-      '7. When finishing the current user request, use summary to provide the desktop app with a concise round summary.',
     ];
   }
 }

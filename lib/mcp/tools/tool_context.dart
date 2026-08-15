@@ -6,6 +6,7 @@ import '../../services/downstream_client.dart';
 import '../../services/process_session_manager.dart';
 import '../../stores/log_store.dart';
 import '../../utils/path_guard.dart';
+import '../round_change_tracker.dart';
 
 /// 一个工作区内所有工具共享的运行期依赖
 class ToolContext {
@@ -15,6 +16,7 @@ class ToolContext {
   final CapabilityRuntime capabilities;
   final LogStore logStore;
   final SummaryHandler? onSummary;
+  final RoundChangeTracker roundChanges = RoundChangeTracker();
   final DateTime startedAt = DateTime.now();
 
   ToolContext({

@@ -322,14 +322,17 @@ class _LogTimelineState extends State<LogTimeline> {
                           itemCount: entries.length,
                           itemBuilder: (context, index) {
                             final entry = entries[index];
+                            if (entry.toolName == 'summary') {
+                              return _SummaryLogPanel(entry: entry);
+                            }
+                            final expanded = _expandedId == entry.id;
+                            void onToggle() => setState(() {
+                              _expandedId = expanded ? null : entry.id;
+                            });
                             return _LogTile(
                               entry: entry,
-                              expanded: _expandedId == entry.id,
-                              onToggle: () => setState(() {
-                                _expandedId = _expandedId == entry.id
-                                    ? null
-                                    : entry.id;
-                              }),
+                              expanded: expanded,
+                              onToggle: onToggle,
                             );
                           },
                         ),
@@ -416,6 +419,397 @@ class _NewContentButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SummaryLogPanel extends StatelessWidget {
+  final McpLogEntry entry;
+
+  const _SummaryLogPanel({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final input = entry.executionArguments ?? const <String, dynamic>{};
+    final output = entry.displayResponse ?? const <String, dynamic>{};
+    final title =
+        _text(output['title']) ??
+        _text(input['title']) ??
+        (entry.pending ? '正在生成本轮总结' : '本轮总结');
+    final summary = _text(output['summary']) ?? _text(input['summary']) ?? '';
+    final details = _stringList(output['details']).isNotEmpty
+        ? _stringList(output['details'])
+        : _stringList(input['details']);
+    final fileChanges = _RoundFileChangeData.tryParse(output['fileChanges']);
+    final accent = entry.pending
+        ? AppTones.warning
+        : entry.success
+        ? AppTones.success
+        : theme.colorScheme.destructive;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.lg,
+          AppSpacing.xl,
+          AppSpacing.lg,
+        ),
+        decoration: BoxDecoration(
+          color: AppTones.surfaceRaised(theme),
+          borderRadius: BorderRadius.circular(theme.radiusLg),
+          border: Border.all(color: accent.withValues(alpha: 0.24)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(theme.radiusMd),
+                  ),
+                  child: Icon(
+                    entry.pending
+                        ? BootstrapIcons.hourglassSplit
+                        : entry.success
+                        ? BootstrapIcons.check2Circle
+                        : BootstrapIcons.exclamationCircle,
+                    size: 17,
+                    color: accent,
+                  ),
+                ),
+                const Gap(AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: AppTones.title(theme, size: 14)),
+                      const Gap(3),
+                      Text(
+                        entry.pending ? '正在整理本轮结果' : '本轮处理已结束',
+                        style: AppTones.muted(theme, size: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(AppSpacing.md),
+                Text(
+                  entry.pending
+                      ? entry.clockText
+                      : '${entry.clockText} · ${entry.durationText}',
+                  style: AppTones.mono(theme, size: 10),
+                ),
+              ],
+            ),
+            if (summary.isNotEmpty) ...[
+              const Gap(AppSpacing.lg),
+              Text(summary, style: AppTones.body(theme, size: 13)),
+            ],
+            if (fileChanges != null && fileChanges.files.isNotEmpty) ...[
+              const Gap(AppSpacing.lg),
+              _RoundFileChanges(data: fileChanges),
+            ],
+            if (details.isNotEmpty) ...[
+              const Gap(AppSpacing.md),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTones.surfaceSunken(theme),
+                  borderRadius: BorderRadius.circular(theme.radiusMd),
+                  border: Border.all(color: AppTones.borderSubtle(theme)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final detail in details)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 7),
+                              child: Container(
+                                width: 4,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.mutedForeground,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                            const Gap(AppSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                detail,
+                                style: AppTones.body(theme, size: 11),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String? _text(Object? value) {
+    if (value == null) return null;
+    final text = '$value'.trim();
+    return text.isEmpty ? null : text;
+  }
+
+  static List<String> _stringList(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .map((item) => '$item'.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+}
+
+class _RoundFileChanges extends StatefulWidget {
+  final _RoundFileChangeData data;
+
+  const _RoundFileChanges({required this.data});
+
+  @override
+  State<_RoundFileChanges> createState() => _RoundFileChangesState();
+}
+
+class _RoundFileChangesState extends State<_RoundFileChanges> {
+  static const _collapsedCount = 5;
+  bool _showAll = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final data = widget.data;
+    final hasMore = data.files.length > _collapsedCount;
+    final visible = _showAll || !hasMore
+        ? data.files
+        : data.files.take(_collapsedCount).toList(growable: false);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.card,
+        borderRadius: BorderRadius.circular(theme.radiusMd),
+        border: Border.all(color: AppTones.borderSubtle(theme)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            child: Row(
+              children: [
+                Text(
+                  '已修改 ${data.files.length} 个文件',
+                  style: AppTones.title(theme, size: 12),
+                ),
+                const Spacer(),
+                if (data.additions > 0)
+                  Text(
+                    '+${data.additions}',
+                    style: AppTones.mono(
+                      theme,
+                      size: 11,
+                      color: AppTones.success,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                if (data.additions > 0 && data.deletions > 0)
+                  const Gap(AppSpacing.sm),
+                if (data.deletions > 0)
+                  Text(
+                    '-${data.deletions}',
+                    style: AppTones.mono(
+                      theme,
+                      size: 11,
+                      color: theme.colorScheme.destructive,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: AppTones.borderSubtle(theme)),
+          for (var index = 0; index < visible.length; index++) ...[
+            _RoundFileChangeRow(item: visible[index]),
+            if (index != visible.length - 1 || hasMore)
+              Divider(height: 1, color: AppTones.borderSubtle(theme)),
+          ],
+          if (hasMore)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _showAll = !_showAll),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      _showAll
+                          ? '收起文件列表'
+                          : '再显示 ${data.files.length - _collapsedCount} 个文件',
+                      style: AppTones.muted(theme, size: 11),
+                    ),
+                    const Gap(4),
+                    Icon(
+                      _showAll
+                          ? BootstrapIcons.chevronUp
+                          : BootstrapIcons.chevronDown,
+                      size: 10,
+                      color: theme.colorScheme.mutedForeground,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundFileChangeRow extends StatelessWidget {
+  final _RoundFileChangeItem item;
+
+  const _RoundFileChangeRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              item.path,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTones.mono(
+                theme,
+                size: 10,
+                color: theme.colorScheme.foreground,
+              ),
+            ),
+          ),
+          const Gap(AppSpacing.md),
+          SizedBox(
+            width: 46,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: item.additions > 0
+                  ? Text(
+                      '+${item.additions}',
+                      style: AppTones.mono(
+                        theme,
+                        size: 10,
+                        color: AppTones.success,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ),
+          SizedBox(
+            width: 46,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: item.deletions > 0
+                  ? Text(
+                      '-${item.deletions}',
+                      style: AppTones.mono(
+                        theme,
+                        size: 10,
+                        color: theme.colorScheme.destructive,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoundFileChangeData {
+  final int additions;
+  final int deletions;
+  final List<_RoundFileChangeItem> files;
+
+  const _RoundFileChangeData({
+    required this.additions,
+    required this.deletions,
+    required this.files,
+  });
+
+  static _RoundFileChangeData? tryParse(Object? value) {
+    if (value is! Map) return null;
+    final rawFiles = value['files'];
+    if (rawFiles is! List) return null;
+    final files = <_RoundFileChangeItem>[];
+    for (final raw in rawFiles) {
+      if (raw is! Map) continue;
+      final path = '${raw['path'] ?? ''}'.trim();
+      if (path.isEmpty) continue;
+      files.add(
+        _RoundFileChangeItem(
+          path: path,
+          additions: _int(raw['additions']),
+          deletions: _int(raw['deletions']),
+        ),
+      );
+    }
+    return _RoundFileChangeData(
+      additions: _int(value['additions']),
+      deletions: _int(value['deletions']),
+      files: List.unmodifiable(files),
+    );
+  }
+
+  static int _int(Object? value) {
+    if (value is num) return value.toInt();
+    return int.tryParse('$value') ?? 0;
+  }
+}
+
+class _RoundFileChangeItem {
+  final String path;
+  final int additions;
+  final int deletions;
+
+  const _RoundFileChangeItem({
+    required this.path,
+    required this.additions,
+    required this.deletions,
+  });
 }
 
 class _LogTile extends StatelessWidget {

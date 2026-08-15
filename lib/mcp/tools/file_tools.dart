@@ -44,7 +44,9 @@ class FileTools {
             for (final relative in uniqueTargets) {
                 final file = File(guard.safeResolve(relative));
                 if (!await file.exists()) {
-                    if (uniqueTargets.length > 1) buffer.writeln('=== $relative (not found) ===');
+                    if (uniqueTargets.length > 1) {
+                        buffer.writeln('=== $relative (not found) ===');
+                    }
                     results.add({'path': relative, 'found': false});
                     continue;
                 }
@@ -151,7 +153,9 @@ class FileTools {
             var encoded = img.encodeJpg(working, quality: quality);
             var outputQuality = quality;
             for (final candidateQuality in const [75, 68, 60]) {
-                if (encoded.length <= imageTargetBytes || candidateQuality >= outputQuality) continue;
+                if (encoded.length <= imageTargetBytes || candidateQuality >= outputQuality) {
+                    continue;
+                }
                 outputQuality = candidateQuality;
                 encoded = img.encodeJpg(working, quality: outputQuality);
             }
@@ -185,11 +189,15 @@ class FileTools {
 
         registry.register(_applyPatchSchema, (raw) async {
             final edits = raw['edits'];
-            if (edits is! List || edits.isEmpty) return ToolResult.error('edits is required');
+            if (edits is! List || edits.isEmpty) {
+                return ToolResult.error('edits is required');
+            }
 
             final states = <String, _PatchState>{};
             for (final item in edits) {
-                if (item is! Map) return ToolResult.error('each edit must be an object');
+                if (item is! Map) {
+                    return ToolResult.error('each edit must be an object');
+                }
                 final edit = item.cast<String, dynamic>();
                 final editArgs = ToolArgs(edit);
                 final relative = editArgs.requireText('path');
@@ -258,6 +266,17 @@ class FileTools {
                 return ToolResult.error('apply_patch commit failed: $error$suffix');
             }
 
+            for (final state in plans) {
+                context.roundChanges.recordCommitted(
+                    relativePath: state.relative,
+                    absolutePath: state.file.absolute.path,
+                    originalExists: state.originalExists,
+                    originalContent: state.originalContent,
+                    finalExists: state.exists,
+                    finalContent: state.content,
+                );
+            }
+
             return ToolResult.text(
                 'Applied ${edits.length} edit(s) across ${plans.length} file(s): '
                 '${plans.map((state) => state.relative).join(', ')}',
@@ -272,7 +291,9 @@ class FileTools {
             final args = ToolArgs(raw);
             final relative = args.text('path') ?? '.';
             final dir = Directory(guard.safeResolve(relative));
-            if (!await dir.exists()) return ToolResult.error('Directory not found: $relative');
+            if (!await dir.exists()) {
+                return ToolResult.error('Directory not found: $relative');
+            }
 
             final entries = <Map<String, dynamic>>[];
             await for (final entity in dir.list(followLinks: false)) {
@@ -628,7 +649,9 @@ class _PatchState {
     Future<void> commit() async {
         if (!exists) {
             if (await file.exists()) await file.delete();
-            if (await file.exists()) throw FileSystemException('delete verification failed', file.path);
+            if (await file.exists()) {
+                throw FileSystemException('delete verification failed', file.path);
+            }
             return;
         }
 
