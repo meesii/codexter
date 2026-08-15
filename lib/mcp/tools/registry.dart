@@ -122,6 +122,23 @@ class ToolResult {
         );
     }
 
+    factory ToolResult.image({
+        required String data,
+        required String mimeType,
+        Map<String, dynamic>? structured,
+    }) {
+        return ToolResult(
+            content: [
+                {
+                    'type': 'image',
+                    'data': data,
+                    'mimeType': mimeType,
+                },
+            ],
+            structuredContent: structured,
+        );
+    }
+
     factory ToolResult.error(String message) {
         return ToolResult(
             content: [

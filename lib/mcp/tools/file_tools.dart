@@ -1,14 +1,23 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'registry.dart';
 import 'tool_context.dart';
 
-/// 文件工具组：read / apply_patch / ls
+/// 文件工具组：read / read_image / apply_patch / ls
 class FileTools {
     const FileTools._();
 
     static const maxReadLines = 2000;
     static const maxReadFiles = 20;
+    static const maxImageSourceBytes = 20 * 1024 * 1024;
+    static const maxImageSourcePixels = 50 * 1000 * 1000;
+    static const imagePassthroughBytes = 1 * 1024 * 1024;
+    static const imageTargetBytes = 1536 * 1024;
+    static const maxImageOutputBytes = 3 * 1024 * 1024;
+    static const defaultImageLongEdge = 2048;
+    static const defaultImageQuality = 82;
 
     static void register(ToolRegistry registry, ToolContext context) {
         final guard = context.pathGuard;
@@ -57,6 +66,121 @@ class FileTools {
                 'files': results,
                 'truncated': targets.length > maxReadFiles,
             });
+        });
+
+        registry.register(_readImageSchema, (raw) async {
+            final args = ToolArgs(raw);
+            final relative = args.requireText('path');
+            final process = (args.text('process') ?? 'auto').toLowerCase();
+            final maxLongEdge = args.intOr('max_long_edge', defaultImageLongEdge).clamp(256, 4096);
+            final quality = args.intOr('quality', defaultImageQuality).clamp(40, 95);
+            if (process != 'auto' && process != 'none') {
+                return ToolResult.error('process must be auto or none');
+            }
+
+            final file = File(guard.safeResolve(relative));
+            if (!await file.exists()) {
+                return ToolResult.error('File not found: $relative');
+            }
+
+            final originalMimeType = _imageMimeType(relative);
+            if (originalMimeType == null) {
+                return ToolResult.error(
+                    'Unsupported image format: $relative. Supported: PNG, JPEG, GIF, WebP.',
+                );
+            }
+
+            final originalSize = await file.length();
+            if (originalSize > maxImageSourceBytes) {
+                return ToolResult.error(
+                    'Image too large: $relative ($originalSize bytes). Maximum source size is $maxImageSourceBytes bytes.',
+                );
+            }
+
+            final originalBytes = await file.readAsBytes();
+            final decoded = img.decodeImage(originalBytes);
+            if (decoded == null) {
+                return ToolResult.error('Failed to decode image: $relative');
+            }
+
+            final originalWidth = decoded.width;
+            final originalHeight = decoded.height;
+            final originalPixels = originalWidth * originalHeight;
+            if (originalPixels > maxImageSourcePixels) {
+                return ToolResult.error(
+                    'Image dimensions are too large: ${originalWidth}x$originalHeight ($originalPixels pixels). Maximum is $maxImageSourcePixels pixels.',
+                );
+            }
+
+            final originalLongEdge = originalWidth > originalHeight ? originalWidth : originalHeight;
+            if (process == 'none') {
+                if (originalSize > maxImageOutputBytes) {
+                    return ToolResult.error(
+                        'Unprocessed image is too large to return: $originalSize bytes. Maximum output is $maxImageOutputBytes bytes; use process=auto.',
+                    );
+                }
+                return _imageResult(
+                    relative: relative,
+                    bytes: originalBytes,
+                    mimeType: originalMimeType,
+                    originalSize: originalSize,
+                    originalWidth: originalWidth,
+                    originalHeight: originalHeight,
+                    processed: false,
+                );
+            }
+
+            final canPassthrough = originalSize <= imagePassthroughBytes && originalLongEdge <= maxLongEdge;
+            if (canPassthrough) {
+                return _imageResult(
+                    relative: relative,
+                    bytes: originalBytes,
+                    mimeType: originalMimeType,
+                    originalSize: originalSize,
+                    originalWidth: originalWidth,
+                    originalHeight: originalHeight,
+                    processed: false,
+                );
+            }
+
+            var working = decoded;
+            if (originalLongEdge > maxLongEdge) {
+                working = _resizeToLongEdge(working, maxLongEdge);
+            }
+
+            var encoded = img.encodeJpg(working, quality: quality);
+            var outputQuality = quality;
+            for (final candidateQuality in const [75, 68, 60]) {
+                if (encoded.length <= imageTargetBytes || candidateQuality >= outputQuality) continue;
+                outputQuality = candidateQuality;
+                encoded = img.encodeJpg(working, quality: outputQuality);
+            }
+
+            while (encoded.length > imageTargetBytes && (working.width > 640 || working.height > 640)) {
+                final currentLongEdge = working.width > working.height ? working.width : working.height;
+                final nextLongEdge = (currentLongEdge * 0.85).round().clamp(640, currentLongEdge - 1);
+                working = _resizeToLongEdge(working, nextLongEdge);
+                encoded = img.encodeJpg(working, quality: outputQuality);
+            }
+
+            if (encoded.length > maxImageOutputBytes) {
+                return ToolResult.error(
+                    'Processed image is still too large: ${encoded.length} bytes. Maximum output is $maxImageOutputBytes bytes.',
+                );
+            }
+
+            return _imageResult(
+                relative: relative,
+                bytes: encoded,
+                mimeType: 'image/jpeg',
+                originalSize: originalSize,
+                originalWidth: originalWidth,
+                originalHeight: originalHeight,
+                processed: true,
+                outputWidth: working.width,
+                outputHeight: working.height,
+                quality: outputQuality,
+            );
         });
 
         registry.register(_applyPatchSchema, (raw) async {
@@ -176,6 +300,60 @@ class FileTools {
         });
     }
 
+    static ToolResult _imageResult({
+        required String relative,
+        required List<int> bytes,
+        required String mimeType,
+        required int originalSize,
+        required int originalWidth,
+        required int originalHeight,
+        required bool processed,
+        int? outputWidth,
+        int? outputHeight,
+        int? quality,
+    }) {
+        final structured = <String, dynamic>{
+            'path': relative,
+            'mimeType': mimeType,
+            'size': bytes.length,
+            'originalSize': originalSize,
+            'originalWidth': originalWidth,
+            'originalHeight': originalHeight,
+            'width': outputWidth ?? originalWidth,
+            'height': outputHeight ?? originalHeight,
+            'processed': processed,
+        };
+        if (quality != null) structured['quality'] = quality;
+        return ToolResult.image(
+            data: base64Encode(bytes),
+            mimeType: mimeType,
+            structured: structured,
+        );
+    }
+
+    static img.Image _resizeToLongEdge(img.Image source, int longEdge) {
+        if (source.width >= source.height) {
+            return img.copyResize(source, width: longEdge, interpolation: img.Interpolation.linear);
+        }
+        return img.copyResize(source, height: longEdge, interpolation: img.Interpolation.linear);
+    }
+
+    static String? _imageMimeType(String path) {
+        switch (p.extension(path).toLowerCase()) {
+            case '.png':
+                return 'image/png';
+            case '.jpg':
+            case '.jpeg':
+                return 'image/jpeg';
+            case '.gif':
+                return 'image/gif';
+            case '.webp':
+                return 'image/webp';
+            default:
+                return null;
+        }
+    }
+
     static int _compareEntries(Map<String, dynamic> left, Map<String, dynamic> right) {
         final leftIsDir = left['type'] == 'directory';
         final rightIsDir = right['type'] == 'directory';
@@ -253,6 +431,74 @@ class FileTools {
         meta: {
             'openai/toolInvocation/invoking': '正在读取文件…',
             'openai/toolInvocation/invoked': '已读取文件',
+        },
+    );
+
+    static const _readImageSchema = ToolSchema(
+        name: 'read_image',
+        title: 'Read image',
+        description:
+            'Read an image as MCP image content. By default, large images are resized and JPEG-compressed before returning. Supports PNG, JPEG, GIF, and WebP.',
+        inputSchema: {
+            'type': 'object',
+            'properties': {
+                'path': {
+                    'type': 'string',
+                    'description': 'Image path relative to project root',
+                },
+                'process': {
+                    'type': 'string',
+                    'enum': ['auto', 'none'],
+                    'default': 'auto',
+                    'description': 'auto resizes/compresses large images; none returns the original image subject to output limits',
+                },
+                'max_long_edge': {
+                    'type': 'integer',
+                    'minimum': 256,
+                    'maximum': 4096,
+                    'default': 2048,
+                    'description': 'Maximum output long edge in pixels when process=auto',
+                },
+                'quality': {
+                    'type': 'integer',
+                    'minimum': 40,
+                    'maximum': 95,
+                    'default': 82,
+                    'description': 'Initial JPEG quality when compression is needed',
+                },
+            },
+            'required': ['path'],
+        },
+        outputSchema: {
+            'type': 'object',
+            'properties': {
+                'path': {'type': 'string'},
+                'mimeType': {'type': 'string'},
+                'size': {'type': 'integer'},
+                'originalSize': {'type': 'integer'},
+                'originalWidth': {'type': 'integer'},
+                'originalHeight': {'type': 'integer'},
+                'width': {'type': 'integer'},
+                'height': {'type': 'integer'},
+                'processed': {'type': 'boolean'},
+                'quality': {'type': 'integer'},
+            },
+            'required': [
+                'path',
+                'mimeType',
+                'size',
+                'originalSize',
+                'originalWidth',
+                'originalHeight',
+                'width',
+                'height',
+                'processed',
+            ],
+        },
+        annotations: ToolAnnotations.readOnly,
+        meta: {
+            'openai/toolInvocation/invoking': '正在读取图片…',
+            'openai/toolInvocation/invoked': '已读取图片',
         },
     );
 

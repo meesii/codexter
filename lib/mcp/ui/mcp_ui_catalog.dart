@@ -72,7 +72,7 @@ class McpUiCatalog {
 
     static McpUiGroup groupForTool(String toolName) {
         if (toolName == summaryToolName) return summary;
-        if (const {'read', 'apply_patch', 'ls'}.contains(toolName)) return file;
+        if (const {'read', 'read_image', 'apply_patch', 'ls'}.contains(toolName)) return file;
         if (const {'grep', 'glob', 'code_explore'}.contains(toolName)) return search;
         if (const {'exec_command', 'write_stdin'}.contains(toolName)) return terminal;
         if (const {'skills_list', 'skill_read'}.contains(toolName)) return skill;
