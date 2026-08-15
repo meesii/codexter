@@ -128,7 +128,8 @@ class AppUpdateService {
       throw UnsupportedError('当前仅支持 Windows 自动安装更新');
     }
     await Process.start(installer.path, const [
-      '/VERYSILENT',
+      // /SILENT 会保留 Inno Setup 的安装进度窗口；/VERYSILENT 会连进度窗口一起隐藏。
+      '/SILENT',
       '/SUPPRESSMSGBOXES',
       '/NORESTART',
       '/CLOSEAPPLICATIONS',

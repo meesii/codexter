@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import 'app_components.dart';
 import 'app_spacing.dart';
 import 'app_toast.dart';
+import 'app_update_dialog.dart';
 import 'settings_dialog.dart';
 
 /// 左侧导航：品牌区 + 工作区列表 + 全局管理入口 + 服务状态
@@ -123,8 +124,8 @@ class AppSidebar extends StatelessWidget {
       final live = appState.isWorkspaceLive(workspace.uuid);
       final activeTool = appState.activeTool(workspace.uuid);
       final latestTool = appState.latestTool(workspace.uuid);
-      final processing = live &&
-          (activeTool != null || (latestTool?.pending ?? false));
+      final processing =
+          live && (activeTool != null || (latestTool?.pending ?? false));
       final caption = !live
           ? '已停止'
           : activeTool != null
@@ -176,14 +177,26 @@ class _BrandHeader extends StatelessWidget {
             child: Row(
               children: [
                 Text(appName, style: AppTones.title(theme, size: 13)),
-                const Gap(AppSpacing.sm),
-                FutureBuilder<String>(
-                  future: AppRuntimeInfo.versionLabel,
-                  builder: (context, snapshot) => Text(
-                    snapshot.data ?? '',
-                    style: AppTones.muted(theme, size: 9),
+                const Gap(AppSpacing.xs),
+                Flexible(
+                  child: FutureBuilder<String>(
+                    future: AppRuntimeInfo.versionLabel,
+                    builder: (context, snapshot) => Text(
+                      snapshot.data ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTones.muted(theme, size: 9),
+                    ),
                   ),
                 ),
+                if (appState.availableUpdate != null) ...[
+                  const Gap(AppSpacing.xs),
+                  _UpdateBadge(
+                    version: appState.availableUpdate!.version,
+                    onPressed: () =>
+                        AppUpdateDialog.showAvailable(context, appState),
+                  ),
+                ],
               ],
             ),
           ),
@@ -199,6 +212,64 @@ class _BrandHeader extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _UpdateBadge extends StatefulWidget {
+  final String version;
+  final VoidCallback onPressed;
+
+  const _UpdateBadge({required this.version, required this.onPressed});
+
+  @override
+  State<_UpdateBadge> createState() => _UpdateBadgeState();
+}
+
+class _UpdateBadgeState extends State<_UpdateBadge> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = AppTones.interaction(theme);
+    return AppTooltip(
+      message: '发现 Codexter v${widget.version}，点击更新',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            height: 20,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: _hovered ? 0.16 : 0.10),
+              borderRadius: BorderRadius.circular(theme.radiusSm),
+              border: Border.all(color: color.withValues(alpha: 0.28)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(BootstrapIcons.arrowUpCircle, size: 10, color: color),
+                const Gap(3),
+                Text(
+                  '更新',
+                  style: theme.typography.sans.copyWith(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

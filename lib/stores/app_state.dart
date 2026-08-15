@@ -17,6 +17,7 @@ import '../services/notification_service.dart';
 import '../services/setup_service.dart';
 import '../services/tunnel_error_classifier.dart';
 import '../services/tunnel_service.dart';
+import '../services/update_service.dart';
 import '../utils/app_paths.dart';
 import 'config_store.dart';
 import 'log_store.dart';
@@ -32,6 +33,7 @@ class AppState extends ChangeNotifier {
   final DoctorService doctorService = DoctorService();
   final NotificationService notificationService = NotificationService();
   final SetupService setupService = SetupService();
+  final AppUpdateService updateService = AppUpdateService();
 
   GlobalConfig _config = GlobalConfig();
   List<Workspace> _workspaces = [];
@@ -48,6 +50,8 @@ class AppState extends ChangeNotifier {
   bool _serverRunning = false;
   bool _tunnelRunning = false;
   bool _busy = false;
+  AppUpdateInfo? _availableUpdate;
+  Future<UpdateCheckResult>? _updateCheckTask;
   SummaryNotice? _latestSummary;
   int _summaryRevision = 0;
   bool _systemDark =
@@ -85,6 +89,7 @@ class AppState extends ChangeNotifier {
   bool get serverRunning => _serverRunning;
   bool get tunnelRunning => _tunnelRunning;
   bool get busy => _busy;
+  AppUpdateInfo? get availableUpdate => _availableUpdate;
   SummaryNotice? get latestSummary => _latestSummary;
   int get summaryRevision => _summaryRevision;
   bool get isFirstRun => !_config.firstRunCompleted;
@@ -130,7 +135,39 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     unawaited(capabilities.syncMcps(_mcps));
+    if (Platform.isWindows) {
+      unawaited(_checkForUpdatesOnStartup());
+    }
     // 已完成首次向导的环境由启动检测页负责启动服务，避免 UI 出现前后台静默失败。
+  }
+
+  Future<UpdateCheckResult> checkForUpdates() {
+    final running = _updateCheckTask;
+    if (running != null) return running;
+
+    late final Future<UpdateCheckResult> task;
+    task = updateService
+        .check()
+        .then((result) {
+          _availableUpdate = result.hasUpdate ? result.latest : null;
+          notifyListeners();
+          return result;
+        })
+        .whenComplete(() {
+          if (identical(_updateCheckTask, task)) {
+            _updateCheckTask = null;
+          }
+        });
+    _updateCheckTask = task;
+    return task;
+  }
+
+  Future<void> _checkForUpdatesOnStartup() async {
+    try {
+      await checkForUpdates();
+    } catch (error) {
+      debugPrint('启动检查更新失败: $error');
+    }
   }
 
   void setCurrentPage(AppPage page) {
