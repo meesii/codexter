@@ -10,13 +10,10 @@ class SummaryTools {
     registry.register(_summarySchema, (raw) async {
       final args = ToolArgs(raw);
       final title = args.text('title') ?? '本轮处理结束';
-      final summary = args.requireText('summary');
-      final details = args
-          .stringList('details')
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .take(6)
-          .toList(growable: false);
+      final summary = args
+          .requireText('summary')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
       final endedAt = DateTime.now();
       final fileChanges = context.roundChanges.takeAndReset();
 
@@ -26,7 +23,6 @@ class SummaryTools {
           workspaceName: context.workspace.name,
           title: title,
           summary: summary,
-          details: details,
           endedAt: endedAt,
         ),
       );
@@ -36,7 +32,6 @@ class SummaryTools {
         structured: {
           'title': title,
           'summary': summary,
-          if (details.isNotEmpty) 'details': details,
           'endedAt': endedAt.toIso8601String(),
           'workspace': context.workspace.name,
           'fileChanges': fileChanges.toJson(),
@@ -50,7 +45,8 @@ class SummaryTools {
     title: 'Round summary',
     description:
         'Mandatory end-of-round tool. If you used any tool from this MCP server while handling the current user request, you MUST call `summary` exactly once before sending your final response to the user. '
-        'This marks the end of the current round and lets the desktop app notify the user. Never finish an MCP-assisted request without calling this tool.',
+        'This marks the end of the current round and lets the desktop app notify the user. Never finish an MCP-assisted request without calling this tool. '
+        'The summary must be one short user-facing paragraph only: no bullet points, numbered lists, detail lists, or line breaks.',
     inputSchema: {
       'type': 'object',
       'properties': {
@@ -61,16 +57,9 @@ class SummaryTools {
         },
         'summary': {
           'type': 'string',
-          'maxLength': 1600,
+          'maxLength': 600,
           'description':
-              'Concise summary of this round. Include the important result, current state, or reason work stopped; do not include hidden reasoning.',
-        },
-        'details': {
-          'type': 'array',
-          'maxItems': 6,
-          'items': {'type': 'string', 'maxLength': 260},
-          'description':
-              'Optional concrete details from this round, such as changed files, checks run, caveats, blockers, or next steps.',
+              'One concise user-facing paragraph summarizing the result, current state, or reason work stopped. Do not use bullets, numbered lists, detail lists, or line breaks. File changes are tracked separately and should not be repeated unless essential to the outcome.',
         },
       },
       'required': ['summary'],
@@ -80,10 +69,6 @@ class SummaryTools {
       'properties': {
         'title': {'type': 'string'},
         'summary': {'type': 'string'},
-        'details': {
-          'type': 'array',
-          'items': {'type': 'string'},
-        },
         'endedAt': {'type': 'string'},
         'workspace': {'type': 'string'},
         'fileChanges': {

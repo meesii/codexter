@@ -3,7 +3,6 @@ class SummaryNotice {
     final String workspaceName;
     final String title;
     final String summary;
-    final List<String> details;
     final DateTime endedAt;
 
     const SummaryNotice({
@@ -11,7 +10,6 @@ class SummaryNotice {
         required this.workspaceName,
         required this.title,
         required this.summary,
-        required this.details,
         required this.endedAt,
     });
 }

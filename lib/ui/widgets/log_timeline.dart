@@ -490,9 +490,6 @@ class _SummaryLogPanel extends StatelessWidget {
         _text(input['title']) ??
         (entry.pending ? '正在生成本轮总结' : '本轮总结');
     final summary = _text(output['summary']) ?? _text(input['summary']) ?? '';
-    final details = _stringList(output['details']).isNotEmpty
-        ? _stringList(output['details'])
-        : _stringList(input['details']);
     final fileChanges = _RoundFileChangeData.tryParse(output['fileChanges']);
     final accent = entry.pending
         ? AppTones.warning
@@ -579,53 +576,6 @@ class _SummaryLogPanel extends StatelessWidget {
               const Gap(AppSpacing.lg),
               Text(summary, style: AppTones.body(theme, size: 13)),
             ],
-            if (details.isNotEmpty) ...[
-              const Gap(AppSpacing.lg),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTones.surfaceSunken(theme),
-                  borderRadius: BorderRadius.circular(theme.radiusMd),
-                  border: Border.all(color: AppTones.borderSubtle(theme)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final detail in details)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 7),
-                              child: Container(
-                                width: 4,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.mutedForeground,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                            const Gap(AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                detail,
-                                style: AppTones.body(theme, size: 11),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
             if (fileChanges != null && fileChanges.files.isNotEmpty) ...[
               const Gap(AppSpacing.md),
               _RoundFileChanges(data: fileChanges),
@@ -640,14 +590,6 @@ class _SummaryLogPanel extends StatelessWidget {
     if (value == null) return null;
     final text = '$value'.trim();
     return text.isEmpty ? null : text;
-  }
-
-  static List<String> _stringList(Object? value) {
-    if (value is! List) return const [];
-    return value
-        .map((item) => '$item'.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
   }
 }
 

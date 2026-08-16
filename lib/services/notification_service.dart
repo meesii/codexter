@@ -86,7 +86,6 @@ class NotificationService {
         workspaceName: appName,
         title: '通知测试',
         summary: '系统通知工作正常，之后收到 summary 时会在这里提醒你。',
-        details: const [],
         endedAt: DateTime.now(),
       ),
       sound: sound,

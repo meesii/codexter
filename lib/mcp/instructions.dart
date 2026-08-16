@@ -21,7 +21,7 @@ class ServerInstructions {
       '',
       'This MCP server exposes local coding tools for the current workspace.',
       'For every tools/call request, include `purpose`: a concise user-visible summary (max 80 characters) of what the immediate call will obtain, verify, or change. `purpose` is used by the desktop app for activity UI and is never forwarded to downstream MCP tools.',
-      'Mandatory end-of-round rule: if you use any tool from this MCP server while handling the current user request, you MUST call `summary` exactly once before sending your final response to the user. Never finish an MCP-assisted request without calling `summary`.',
+      'Mandatory end-of-round rule: if you use any tool from this MCP server while handling the current user request, you MUST call `summary` exactly once before sending your final response to the user. The summary must be one short user-facing paragraph only: no bullets, numbered lists, detail lists, or line breaks. File changes are tracked automatically, so do not repeat them unless essential to the outcome. Never finish an MCP-assisted request without calling `summary`.',
     ];
 
     final agents = _resolveAgents(
@@ -121,7 +121,7 @@ class ServerInstructions {
       '- write_stdin — poll a running command or send stdin/Ctrl+C using session_id.',
       '- skills_list / skill_read — discover dynamic local Skills and load SKILL.md on demand.',
       '- mcp_tools / mcp_call — discover and invoke tools from enabled downstream MCP servers.',
-      '- summary — summarize the current round and notify the desktop app that the round has ended.',
+      '- summary — end the current round with one concise user-facing paragraph and notify the desktop app.',
     ];
   }
 

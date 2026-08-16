@@ -127,13 +127,13 @@ class AppUpdateService {
     if (!Platform.isWindows) {
       throw UnsupportedError('当前仅支持 Windows 自动安装更新');
     }
-    await Process.start(installer.path, const [
-      // /SILENT 会保留 Inno Setup 的安装进度窗口；/VERYSILENT 会连进度窗口一起隐藏。
-      '/SILENT',
-      '/SUPPRESSMSGBOXES',
-      '/NORESTART',
-      '/CLOSEAPPLICATIONS',
-    ], mode: ProcessStartMode.detached);
+    // 使用正常的 Inno Setup 安装界面，不再静默升级。
+    // Setup 成功启动后，由 Codexter 主动完成 shutdown 并退出进程。
+    await Process.start(
+      installer.path,
+      const [],
+      mode: ProcessStartMode.detached,
+    );
   }
 
   Future<Map<String, dynamic>> _fetchJson(Uri uri) async {

@@ -35,10 +35,7 @@ html, body { margin: 0; padding: 0; width: 100%; background: transparent; color:
 .logo { width: 26px; height: 26px; flex: 0 0 auto; object-fit: contain; }
 .main { min-width: 0; flex: 1; }
 .title { font-size: 14px; line-height: 1.45; font-weight: 650; overflow-wrap: anywhere; }
-.summary { margin-top: 9px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
-.details { margin: 11px 0 0; padding: 9px 11px 9px 28px; border-radius: 9px; background: var(--panel); }
-.details[hidden] { display: none; }
-.details li { margin: 3px 0; padding-left: 1px; color: var(--fg); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.summary { margin-top: 9px; font-size: 13px; line-height: 1.6; white-space: normal; overflow-wrap: anywhere; }
 .meta { margin-top: 9px; color: var(--muted); font-size: 10px; line-height: 1.4; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -61,7 +58,6 @@ html, body { margin: 0; padding: 0; width: 100%; background: transparent; color:
       </div>
     </div>
     <div id="summary" class="summary"></div>
-    <ul id="details" class="details" hidden></ul>
     <div id="meta" class="meta"></div>
   </div>
 </div>
@@ -75,7 +71,6 @@ html, body { margin: 0; padding: 0; width: 100%; background: transparent; color:
 
   var title = document.getElementById("title");
   var summary = document.getElementById("summary");
-  var details = document.getElementById("details");
   var meta = document.getElementById("meta");
 
   function oa() {
@@ -102,15 +97,6 @@ html, body { margin: 0; padding: 0; width: 100%; background: transparent; color:
     var value = data();
     title.textContent = value.title || "";
     summary.textContent = value.summary || "";
-
-    details.replaceChildren();
-    var list = Array.isArray(value.details) ? value.details : [];
-    list.forEach(function (item) {
-      var li = document.createElement("li");
-      li.textContent = String(item);
-      details.append(li);
-    });
-    details.hidden = list.length === 0;
 
     var metaParts = [];
     if (value.workspace) metaParts.push(String(value.workspace));

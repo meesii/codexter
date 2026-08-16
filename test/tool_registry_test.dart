@@ -117,7 +117,6 @@ void main() {
                 'purpose': '总结本轮处理',
                 'title': '本轮处理结束',
                 'summary': '已经完成这一轮处理。',
-                'details': ['检查通过'],
             });
 
             expect(result.isError, isFalse);
@@ -127,7 +126,6 @@ void main() {
             expect(summaryNotice!.workspaceUuid, workspace.uuid);
             expect(summaryNotice!.title, '本轮处理结束');
             expect(summaryNotice!.summary, '已经完成这一轮处理。');
-            expect(summaryNotice!.details, ['检查通过']);
         } finally {
             await processManager.shutdown();
             processManager.dispose();

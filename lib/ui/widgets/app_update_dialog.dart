@@ -80,7 +80,7 @@ class AppUpdateDialog {
               ),
               const Gap(AppSpacing.sm),
               Text(
-                '当前版本 v$currentVersion，下载完成后将关闭 Codexter，显示安装进度，完成后自动重新启动。',
+                '当前版本 v$currentVersion，下载完成后将打开安装程序，并关闭 Codexter。请按安装向导完成升级。',
                 style: AppTones.muted(theme, size: 12),
               ),
             ],
@@ -177,11 +177,11 @@ class _UpdateDownloadContentState extends State<_UpdateDownloadContent> {
       if (!mounted) return;
       setState(() {
         _progress = 1;
-        _status = '校验完成，正在打开安装进度窗口…';
+        _status = '校验完成，正在打开安装程序…';
       });
       await widget.service.launchInstaller(installer);
-      await widget.appState.shutdown();
       await Future<void>.delayed(const Duration(milliseconds: 300));
+      await widget.appState.shutdown();
       exit(0);
     } catch (error) {
       if (!mounted) return;
