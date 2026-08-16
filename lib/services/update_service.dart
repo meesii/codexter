@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../app_info.dart';
+import '../utils/win_kill_job.dart';
 
 typedef UpdateProgress = void Function(double? fraction);
 
@@ -118,9 +119,8 @@ class AppUpdateService {
     if (!Platform.isWindows) {
       throw UnsupportedError('当前仅支持 Windows 自动安装更新');
     }
-    // 使用正常的 Inno Setup 安装界面，不再静默升级。
-    // Setup 成功启动后，由 Codexter 主动完成 shutdown 并退出进程。
-    await Process.start(installer.path, const [], mode: ProcessStartMode.detached);
+    // 使用 Windows 官方 Job breakaway 机制，确保 Codexter 退出后 Setup 继续运行。
+    await WinKillOnCloseJob.launchBreakaway(installer.path);
   }
 
   Future<Map<String, dynamic>> _fetchJson(Uri uri) async {

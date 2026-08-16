@@ -1,6 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
+import 'package:win32/win32.dart';
 
 /// Windows Job Object：关闭最后一个 handle 时结束 Job 内进程。
 ///
@@ -12,6 +13,7 @@ class WinKillOnCloseJob {
   final int _job;
 
   static const _jobObjectExtendedLimitInformation = 9;
+  static const _jobObjectLimitBreakawayOk = 0x0800;
   static const _jobObjectLimitKillOnClose = 0x2000;
   static const _processTerminate = 0x0001;
   static const _processSetQuota = 0x0100;
@@ -40,7 +42,7 @@ class WinKillOnCloseJob {
 
     final info = calloc<Uint8>(_extendedLimitInfoSize);
     try {
-      (info.cast<Uint32>() + 4).value = _jobObjectLimitKillOnClose;
+      (info.cast<Uint32>() + 4).value = _jobObjectLimitKillOnClose | _jobObjectLimitBreakawayOk;
       final setInfo = _k32
           .lookupFunction<
             Int32 Function(IntPtr, Int32, Pointer<Void>, Uint32),
@@ -71,6 +73,60 @@ class WinKillOnCloseJob {
     final current = _k32.lookupFunction<IntPtr Function(), int Function()>('GetCurrentProcess');
     _boundCurrent = job._assignHandle(current());
     return _boundCurrent;
+  }
+
+  /// 启动一个显式脱离当前 Job 的进程，用于必须在 Codexter 退出后继续运行的安装器。
+  static Future<void> launchBreakaway(String executable) async {
+    if (!Platform.isWindows || !_boundCurrent) {
+      await Process.start(executable, const [], mode: ProcessStartMode.detached);
+      return;
+    }
+
+    final job = ensure();
+    if (job == null) {
+      throw ProcessException(executable, const [], 'Windows Job 初始化失败');
+    }
+
+    using((arena) {
+      final startupInfo = arena<STARTUPINFO>()..ref.cb = sizeOf<STARTUPINFO>();
+      final processInfo = arena<PROCESS_INFORMATION>();
+      final isInJob = arena<Int32>();
+      final result = CreateProcess(
+        arena.pcwstr(executable),
+        arena.pwstr('"$executable"'),
+        null,
+        null,
+        false,
+        CREATE_BREAKAWAY_FROM_JOB,
+        null,
+        null,
+        startupInfo,
+        processInfo,
+      );
+      if (!result.value) {
+        throw ProcessException(executable, const [], '无法启动更新安装器', result.error);
+      }
+
+      try {
+        final checked = IsProcessInJob(
+          processInfo.ref.hProcess,
+          HANDLE(Pointer.fromAddress(job._job)),
+          isInJob,
+        );
+        if (!checked.value || isInJob.value != 0) {
+          TerminateProcess(processInfo.ref.hProcess, 1);
+          throw ProcessException(
+            executable,
+            const [],
+            '更新安装器未能脱离 Codexter 进程组',
+            checked.value ? 0 : checked.error,
+          );
+        }
+      } finally {
+        CloseHandle(processInfo.ref.hThread);
+        CloseHandle(processInfo.ref.hProcess);
+      }
+    });
   }
 
   /// 把指定 PID 放进 Job。用于子进程没有继承到 Job 的情况。
