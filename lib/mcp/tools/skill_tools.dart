@@ -25,18 +25,13 @@ class SkillTools {
       }
       return ToolResult.text(
         buffer.toString(),
-        structured: {
-          'count': skills.length,
-          'skills': skills.map(_skillToJson).toList(),
-        },
+        structured: {'count': skills.length, 'skills': skills.map(_skillToJson).toList()},
       );
     });
 
     registry.register(_readSchema, (raw) async {
       final name = ToolArgs(raw).requireText('name');
-      final skill = context.enabledSkills.firstWhereOrNull(
-        (item) => item.name == name,
-      );
+      final skill = context.enabledSkills.firstWhereOrNull((item) => item.name == name);
       if (skill == null) return ToolResult.error('Unknown skill: $name');
 
       final content = await _readSkillBody(skill);
@@ -100,10 +95,7 @@ class SkillTools {
       'required': ['text', 'count', 'skills'],
     },
     annotations: ToolAnnotations.readOnly,
-    meta: {
-      'openai/toolInvocation/invoking': '正在列出技能…',
-      'openai/toolInvocation/invoked': '已列出技能',
-    },
+    meta: {'openai/toolInvocation/invoking': '正在列出技能…', 'openai/toolInvocation/invoked': '已列出技能'},
   );
 
   static const _readSchema = ToolSchema(
@@ -129,9 +121,6 @@ class SkillTools {
       'required': ['text', 'name', 'description', 'source'],
     },
     annotations: ToolAnnotations.readOnly,
-    meta: {
-      'openai/toolInvocation/invoking': '正在读取技能…',
-      'openai/toolInvocation/invoked': '已读取技能',
-    },
+    meta: {'openai/toolInvocation/invoking': '正在读取技能…', 'openai/toolInvocation/invoked': '已读取技能'},
   );
 }

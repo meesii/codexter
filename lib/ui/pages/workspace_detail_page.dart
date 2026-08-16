@@ -47,12 +47,8 @@ class _WorkspaceDetailPageState extends State<WorkspaceDetailPage> {
             appState.toggleWorkspace(workspace.uuid, enable);
             AppToast.success(context, enable ? '工作区已启动' : '工作区已停止');
           },
-          onEdit: () =>
-              CreateWorkspaceDialog.showEdit(context, appState, workspace),
-          onConnect: () => McpConnectionDialog.show(
-            context,
-            appState.workspaceUrl(workspace.uuid),
-          ),
+          onEdit: () => CreateWorkspaceDialog.showEdit(context, appState, workspace),
+          onConnect: () => McpConnectionDialog.show(context, appState.workspaceUrl(workspace.uuid)),
         ),
       ],
       child: _tabIndex == 0
@@ -92,10 +88,7 @@ class _WorkspaceStatus extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppStatusDot(
-          tone: live ? AppStatusTone.live : AppStatusTone.idle,
-          size: 6,
-        ),
+        AppStatusDot(tone: live ? AppStatusTone.live : AppStatusTone.idle, size: 6),
         const Gap(AppSpacing.xs),
         Text(
           live ? '运行中' : '已停止',
@@ -138,19 +131,10 @@ class _WorkspaceHeaderActions extends StatelessWidget {
             height: _controlHeight,
             child: Button(
               style: live
-                  ? ButtonStyle.outline(
-                      density: ButtonDensity.icon,
-                      size: ButtonSize.normal,
-                    )
-                  : ButtonStyle.primary(
-                      density: ButtonDensity.icon,
-                      size: ButtonSize.normal,
-                    ),
+                  ? ButtonStyle.outline(density: ButtonDensity.icon, size: ButtonSize.normal)
+                  : ButtonStyle.primary(density: ButtonDensity.icon, size: ButtonSize.normal),
               onPressed: onToggle,
-              child: Icon(
-                live ? LucideIcons.square : LucideIcons.play,
-                size: live ? 13 : 15,
-              ),
+              child: Icon(live ? LucideIcons.square : LucideIcons.play, size: live ? 13 : 15),
             ),
           ),
         ),
@@ -161,10 +145,7 @@ class _WorkspaceHeaderActions extends StatelessWidget {
             width: _controlHeight,
             height: _controlHeight,
             child: Button(
-              style: ButtonStyle.outline(
-                density: ButtonDensity.icon,
-                size: ButtonSize.normal,
-              ),
+              style: ButtonStyle.outline(density: ButtonDensity.icon, size: ButtonSize.normal),
               onPressed: onEdit,
               child: const Icon(LucideIcons.pencil, size: 14),
             ),
@@ -177,10 +158,7 @@ class _WorkspaceHeaderActions extends StatelessWidget {
             width: _controlHeight,
             height: _controlHeight,
             child: Button(
-              style: ButtonStyle.outline(
-                density: ButtonDensity.icon,
-                size: ButtonSize.normal,
-              ),
+              style: ButtonStyle.outline(density: ButtonDensity.icon, size: ButtonSize.normal),
               onPressed: onConnect,
               child: const Icon(LucideIcons.link2, size: 15),
             ),

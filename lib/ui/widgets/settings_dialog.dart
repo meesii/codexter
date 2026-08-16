@@ -29,9 +29,10 @@ class SettingsDialog {
           curve: Curves.easeOut,
           reverseCurve: Curves.easeIn,
         );
-        final scale = Tween<double>(begin: 0.975, end: 1).animate(
-          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-        );
+        final scale = Tween<double>(
+          begin: 0.975,
+          end: 1,
+        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
 
         return Stack(
           fit: StackFit.expand,
@@ -43,11 +44,7 @@ class SettingsDialog {
                   child: ClipRect(
                     child: BackdropFilter(
                       filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                      child: ColoredBox(
-                        color: Colors.black.withValues(
-                          alpha: dark ? 0.32 : 0.18,
-                        ),
-                      ),
+                      child: ColoredBox(color: Colors.black.withValues(alpha: dark ? 0.32 : 0.18)),
                     ),
                   ),
                 ),
@@ -62,10 +59,7 @@ class SettingsDialog {
                     child: ScaleTransition(
                       scale: scale,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: 800,
-                          maxHeight: 620,
-                        ),
+                        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 620),
                         child: SizedBox(
                           width: double.infinity,
                           height: double.infinity,
@@ -80,8 +74,7 @@ class SettingsDialog {
           ],
         );
       },
-      transitionBuilder: (context, animation, secondaryAnimation, child) =>
-          child,
+      transitionBuilder: (context, animation, secondaryAnimation, child) => child,
     );
   }
 }
@@ -233,18 +226,13 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
     final action = switch (_section) {
       1 => Button(
         style: ButtonStyle.outline(size: ButtonSize.small),
-        onPressed: appState.config.notificationsEnabled
-            ? _testNotification
-            : null,
+        onPressed: appState.config.notificationsEnabled ? _testNotification : null,
         child: const AppButtonLabel(icon: BootstrapIcons.bell, label: '测试通知'),
       ),
       2 => Button(
         style: ButtonStyle.primary(size: ButtonSize.small),
         onPressed: _saving ? null : _saveAndRestart,
-        child: AppButtonLabel(
-          icon: BootstrapIcons.check2,
-          label: _saving ? '应用中…' : '保存并重启',
-        ),
+        child: AppButtonLabel(icon: BootstrapIcons.check2, label: _saving ? '应用中…' : '保存并重启'),
       ),
       _ => null,
     };
@@ -326,10 +314,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _GroupHeading(
-          title: '任务完成提醒',
-          description: '收到 summary 后由系统通知中心提醒你，无需一直盯着 ChatGPT。',
-        ),
+        const _GroupHeading(title: '任务完成提醒', description: '收到 summary 后由系统通知中心提醒你，无需一直盯着 ChatGPT。'),
         const Gap(AppSpacing.md),
         _SettingsGroup(
           children: [
@@ -346,9 +331,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
               description: '通知出现时播放系统提示音。',
               trailing: Switch(
                 value: config.notificationSound,
-                onChanged: config.notificationsEnabled
-                    ? appState.setNotificationSound
-                    : null,
+                onChanged: config.notificationsEnabled ? appState.setNotificationSound : null,
               ),
             ),
           ],
@@ -417,9 +400,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
               description: '应用启动时保持连接，为 ChatGPT 提供公网访问。',
               trailing: Switch(
                 value: _useCloudflared,
-                onChanged: _saving
-                    ? null
-                    : (value) => setState(() => _useCloudflared = value),
+                onChanged: _saving ? null : (value) => setState(() => _useCloudflared = value),
               ),
               child: _useCloudflared
                   ? Column(
@@ -431,24 +412,16 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
                           placeholder: 'codex-mcp',
                         ),
                         const Gap(AppSpacing.lg),
-                        _MetaRow(
-                          label: 'Tunnel ID',
-                          value: config.tunnelId ?? '未创建',
-                        ),
+                        _MetaRow(label: 'Tunnel ID', value: config.tunnelId ?? '未创建'),
                         const Gap(AppSpacing.sm),
-                        _MetaRow(
-                          label: 'Cloudflared',
-                          value: config.cloudflaredBin ?? '使用内置下载路径',
-                        ),
+                        _MetaRow(label: 'Cloudflared', value: config.cloudflaredBin ?? '使用内置下载路径'),
                         const Gap(AppSpacing.lg),
                         Wrap(
                           spacing: AppSpacing.sm,
                           runSpacing: AppSpacing.sm,
                           children: [
                             Button(
-                              style: ButtonStyle.outline(
-                                size: ButtonSize.small,
-                              ),
+                              style: ButtonStyle.outline(size: ButtonSize.small),
                               onPressed: _saving ? null : _createTunnel,
                               child: const AppButtonLabel(
                                 icon: BootstrapIcons.cloudPlus,
@@ -456,9 +429,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
                               ),
                             ),
                             Button(
-                              style: ButtonStyle.outline(
-                                size: ButtonSize.small,
-                              ),
+                              style: ButtonStyle.outline(size: ButtonSize.small),
                               onPressed: _saving ? null : _verifyRoute,
                               child: const AppButtonLabel(
                                 icon: BootstrapIcons.activity,
@@ -526,9 +497,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
       await appState.saveGlobalConfig(
         appState.config.copyWith(
           domain: domain,
-          host: _hostController.text.trim().isEmpty
-              ? '127.0.0.1'
-              : _hostController.text.trim(),
+          host: _hostController.text.trim().isEmpty ? '127.0.0.1' : _hostController.text.trim(),
           port: int.tryParse(_portController.text.trim()) ?? 18920,
           useCloudflared: _useCloudflared,
           tunnelName: tunnelName.isEmpty ? 'codex-mcp' : tunnelName,
@@ -536,10 +505,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
       );
 
       final tunnelId = appState.config.tunnelId;
-      if (_useCloudflared &&
-          domain.isNotEmpty &&
-          tunnelId != null &&
-          tunnelId.isNotEmpty) {
+      if (_useCloudflared && domain.isNotEmpty && tunnelId != null && tunnelId.isNotEmpty) {
         final bin = await _setupService.findCloudflaredBin();
         if (bin == null) throw Exception('未找到 cloudflared');
         await _setupService.ensureDnsRoute(bin, tunnelId, domain);
@@ -621,11 +587,7 @@ class _SectionHeader extends StatelessWidget {
   final String description;
   final Widget? action;
 
-  const _SectionHeader({
-    required this.title,
-    required this.description,
-    this.action,
-  });
+  const _SectionHeader({required this.title, required this.description, this.action});
 
   @override
   Widget build(BuildContext context) {
@@ -695,9 +657,7 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
             padding: const EdgeInsets.symmetric(horizontal: 9),
             decoration: BoxDecoration(
               color: active
-                  ? theme.colorScheme.foreground.withValues(
-                      alpha: widget.selected ? 0.085 : 0.045,
-                    )
+                  ? theme.colorScheme.foreground.withValues(alpha: widget.selected ? 0.085 : 0.045)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(theme.radiusMd),
             ),
@@ -714,9 +674,7 @@ class _SettingsNavItemState extends State<_SettingsNavItem> {
                 Text(
                   widget.label,
                   style: AppTones.body(theme, size: 11.5).copyWith(
-                    fontWeight: widget.selected
-                        ? FontWeight.w600
-                        : FontWeight.w500,
+                    fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
                     color: widget.selected
                         ? theme.colorScheme.foreground
                         : theme.colorScheme.foreground.withValues(alpha: 0.78),
@@ -785,11 +743,7 @@ class _SettingItem extends StatelessWidget {
   final String description;
   final Widget trailing;
 
-  const _SettingItem({
-    required this.title,
-    required this.description,
-    required this.trailing,
-  });
+  const _SettingItem({required this.title, required this.description, required this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -804,10 +758,7 @@ class _SettingItem extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: AppTones.body(
-                    theme,
-                    size: 12.5,
-                  ).copyWith(fontWeight: FontWeight.w600),
+                  style: AppTones.body(theme, size: 12.5).copyWith(fontWeight: FontWeight.w600),
                 ),
                 const Gap(3),
                 Text(description, style: AppTones.muted(theme, size: 11)),
@@ -881,10 +832,7 @@ class _MetaRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        SizedBox(
-          width: 82,
-          child: Text(label, style: AppTones.muted(theme, size: 10.5)),
-        ),
+        SizedBox(width: 82, child: Text(label, style: AppTones.muted(theme, size: 10.5))),
         Expanded(
           child: AppMonoText(
             value,
@@ -900,10 +848,7 @@ class _MetaRow extends StatelessWidget {
 class _HorizontalRule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      color: AppTones.borderSubtle(Theme.of(context)),
-    );
+    return Container(height: 1, color: AppTones.borderSubtle(Theme.of(context)));
   }
 }
 
@@ -973,11 +918,7 @@ class _SegmentedItem extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _SegmentedItem({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  const _SegmentedItem({required this.label, required this.selected, required this.onTap});
 
   @override
   State<_SegmentedItem> createState() => _SegmentedItemState();
@@ -1018,9 +959,10 @@ class _SegmentedItemState extends State<_SegmentedItem> {
           ),
           child: Text(
             widget.label,
-            style: AppTones.body(theme, size: 11).copyWith(
-              fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
-            ),
+            style: AppTones.body(
+              theme,
+              size: 11,
+            ).copyWith(fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500),
           ),
         ),
       ),
@@ -1060,11 +1002,7 @@ class _CloseButtonState extends State<_CloseButton> {
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(theme.radiusMd),
           ),
-          child: Icon(
-            BootstrapIcons.x,
-            size: 15,
-            color: theme.colorScheme.mutedForeground,
-          ),
+          child: Icon(BootstrapIcons.x, size: 15, color: theme.colorScheme.mutedForeground),
         ),
       ),
     );

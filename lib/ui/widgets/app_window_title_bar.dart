@@ -17,11 +17,7 @@ class AppWindowFrame extends StatelessWidget {
   final AppState appState;
   final Widget child;
 
-  const AppWindowFrame({
-    super.key,
-    required this.appState,
-    required this.child,
-  });
+  const AppWindowFrame({super.key, required this.appState, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -46,8 +42,7 @@ class AppWindowTitleBar extends StatefulWidget {
   State<AppWindowTitleBar> createState() => _AppWindowTitleBarState();
 }
 
-class _AppWindowTitleBarState extends State<AppWindowTitleBar>
-    with WindowListener {
+class _AppWindowTitleBarState extends State<AppWindowTitleBar> with WindowListener {
   bool _maximized = false;
 
   @override
@@ -117,14 +112,9 @@ class _AppWindowTitleBarState extends State<AppWindowTitleBar>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                _CaptionButton(kind: _CaptionKind.minimize, onPressed: windowManager.minimize),
                 _CaptionButton(
-                  kind: _CaptionKind.minimize,
-                  onPressed: windowManager.minimize,
-                ),
-                _CaptionButton(
-                  kind: _maximized
-                      ? _CaptionKind.restore
-                      : _CaptionKind.maximize,
+                  kind: _maximized ? _CaptionKind.restore : _CaptionKind.maximize,
                   onPressed: _toggleMaximize,
                 ),
                 _CaptionButton(
@@ -158,8 +148,7 @@ class _WindowMenuBar extends StatelessWidget {
             items: (anchorContext) => [
               MenuButton(
                 child: const Text('打开配置目录'),
-                onPressed: (_) =>
-                    unawaited(_openConfigDirectory(anchorContext)),
+                onPressed: (_) => unawaited(_openConfigDirectory(anchorContext)),
               ),
               const MenuDivider(),
               MenuButton(
@@ -174,8 +163,7 @@ class _WindowMenuBar extends StatelessWidget {
               MenuCheckbox(
                 value: appState.darkMode,
                 child: const Text('深色模式'),
-                onChanged: (_, value) =>
-                    unawaited(appState.setThemeMode(value)),
+                onChanged: (_, value) => unawaited(appState.setThemeMode(value)),
               ),
             ],
           ),
@@ -252,11 +240,7 @@ class _WindowMenuButtonState extends State<_WindowMenuButton> {
       offset: const Offset(0, 2),
       builder: (_) => SizedBox(
         width: 192,
-        child: DropdownMenu(
-          surfaceOpacity: 0.98,
-          surfaceBlur: 12,
-          children: widget.items(context),
-        ),
+        child: DropdownMenu(surfaceOpacity: 0.98, surfaceBlur: 12, children: widget.items(context)),
       ),
     );
     try {
@@ -319,11 +303,7 @@ class _CaptionButton extends StatefulWidget {
   final VoidCallback onPressed;
   final bool danger;
 
-  const _CaptionButton({
-    required this.kind,
-    required this.onPressed,
-    this.danger = false,
-  });
+  const _CaptionButton({required this.kind, required this.onPressed, this.danger = false});
 
   @override
   State<_CaptionButton> createState() => _CaptionButtonState();
@@ -379,11 +359,7 @@ class _CaptionIconPainter extends CustomPainter {
   final Color color;
   final double devicePixelRatio;
 
-  _CaptionIconPainter({
-    required this.kind,
-    required this.color,
-    required this.devicePixelRatio,
-  });
+  _CaptionIconPainter({required this.kind, required this.color, required this.devicePixelRatio});
 
   double _snap(double value) {
     final physical = value * devicePixelRatio;
@@ -413,14 +389,8 @@ class _CaptionIconPainter extends CustomPainter {
         canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), paint);
       case _CaptionKind.restore:
         final offset = 2 / devicePixelRatio;
-        canvas.drawRect(
-          Rect.fromLTRB(left + offset, top, right, bottom - offset),
-          paint,
-        );
-        canvas.drawRect(
-          Rect.fromLTRB(left, top + offset, right - offset, bottom),
-          paint,
-        );
+        canvas.drawRect(Rect.fromLTRB(left + offset, top, right, bottom - offset), paint);
+        canvas.drawRect(Rect.fromLTRB(left, top + offset, right - offset, bottom), paint);
       case _CaptionKind.close:
         canvas.drawLine(Offset(left, top), Offset(right, bottom), paint);
         canvas.drawLine(Offset(right, top), Offset(left, bottom), paint);

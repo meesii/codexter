@@ -46,9 +46,7 @@ class _DoctorPageState extends State<DoctorPage> {
     final checks = widget.appState.doctorChecks;
     final running = widget.appState.doctorRunning;
     final activeTitle = widget.appState.doctorRunningTitle;
-    final failed = checks
-        .where((check) => check.state == DoctorState.fail)
-        .length;
+    final failed = checks.where((check) => check.state == DoctorState.fail).length;
     final checksByTitle = {for (final check in checks) check.title: check};
 
     return AppPageScaffold(
@@ -64,10 +62,7 @@ class _DoctorPageState extends State<DoctorPage> {
         Button(
           style: ButtonStyle.outline(size: ButtonSize.normal),
           onPressed: running ? null : _runChecks,
-          child: const AppButtonLabel(
-            icon: BootstrapIcons.arrowRepeat,
-            label: '重新检查',
-          ),
+          child: const AppButtonLabel(icon: BootstrapIcons.arrowRepeat, label: '重新检查'),
         ),
       ],
       child: GridView.builder(
@@ -87,10 +82,7 @@ class _DoctorPageState extends State<DoctorPage> {
             check: check,
             loading: running && activeTitle == title,
             repairing: _repairingTitle == title,
-            onRepair:
-                check?.state == DoctorState.fail &&
-                    check!.repairable &&
-                    !running
+            onRepair: check?.state == DoctorState.fail && check!.repairable && !running
                 ? () => _repairCheck(check)
                 : null,
           );
@@ -173,13 +165,7 @@ class _CheckTileState extends State<_CheckTile> {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      Center(
-                        child: Icon(
-                          _iconFor(widget.title),
-                          size: 16,
-                          color: color,
-                        ),
-                      ),
+                      Center(child: Icon(_iconFor(widget.title), size: 16, color: color)),
                       Positioned(
                         right: -2,
                         bottom: -2,
@@ -210,10 +196,7 @@ class _CheckTileState extends State<_CheckTile> {
                   child: Align(
                     alignment: Alignment.centerRight,
                     child: widget.loading
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(),
-                          )
+                        ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator())
                         : AppTag(label: label, color: color),
                   ),
                 ),

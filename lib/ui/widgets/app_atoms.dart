@@ -12,12 +12,7 @@ class AppStatusDot extends StatelessWidget {
   final double size;
   final bool glow;
 
-  const AppStatusDot({
-    super.key,
-    required this.tone,
-    this.size = 8,
-    this.glow = true,
-  });
+  const AppStatusDot({super.key, required this.tone, this.size = 8, this.glow = true});
 
   @override
   Widget build(BuildContext context) {
@@ -37,13 +32,7 @@ class AppStatusDot extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: tone == AppStatusTone.idle || !glow
             ? null
-            : [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.35),
-                  blurRadius: 6,
-                  spreadRadius: 2,
-                ),
-              ],
+            : [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 6, spreadRadius: 2)],
       ),
     );
   }
@@ -56,13 +45,7 @@ class AppLineIcon extends StatelessWidget {
   final double size;
   final double lineHeight;
 
-  const AppLineIcon(
-    this.icon, {
-    super.key,
-    this.color,
-    this.size = 14,
-    required this.lineHeight,
-  });
+  const AppLineIcon(this.icon, {super.key, this.color, this.size = 14, required this.lineHeight});
 
   @override
   Widget build(BuildContext context) {
@@ -90,10 +73,7 @@ class AppTag extends StatelessWidget {
     final theme = Theme.of(context);
     final tone = color ?? theme.colorScheme.mutedForeground;
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 3,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 3),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(theme.radiusMd),
@@ -123,10 +103,7 @@ class AppTag extends StatelessWidget {
 }
 
 /// 统一使用中文文案的文本选择右键菜单。
-Widget buildAppTextContextMenu(
-  BuildContext context,
-  EditableTextState editableTextState,
-) {
+Widget buildAppTextContextMenu(BuildContext context, EditableTextState editableTextState) {
   final buttonItems = editableTextState.contextMenuButtonItems
       .map((item) {
         final label = switch (item.type) {
@@ -179,12 +156,7 @@ class AppMonoText extends StatelessWidget {
         contextMenuBuilder: buildAppTextContextMenu,
       );
     }
-    return Text(
-      data,
-      style: style,
-      maxLines: maxLines,
-      overflow: TextOverflow.ellipsis,
-    );
+    return Text(data, style: style, maxLines: maxLines, overflow: TextOverflow.ellipsis);
   }
 }
 
@@ -194,12 +166,7 @@ class AppStat extends StatelessWidget {
   final String value;
   final Color? color;
 
-  const AppStat({
-    super.key,
-    required this.icon,
-    required this.value,
-    this.color,
-  });
+  const AppStat({super.key, required this.icon, required this.value, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -211,13 +178,7 @@ class AppStat extends StatelessWidget {
       children: [
         AppLineIcon(icon, color: tone, size: 12, lineHeight: 13.2),
         const Gap(AppSpacing.xs),
-        Text(
-          value,
-          style: AppTones.muted(
-            theme,
-            size: 11,
-          ).copyWith(color: tone, height: 1.2),
-        ),
+        Text(value, style: AppTones.muted(theme, size: 11).copyWith(color: tone, height: 1.2)),
       ],
     );
   }
@@ -243,12 +204,7 @@ class AppCopyField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final valueText = AppMonoText(
-      value,
-      size: 11,
-      selectable: selectable,
-      maxLines: maxLines,
-    );
+    final valueText = AppMonoText(value, size: 11, selectable: selectable, maxLines: maxLines);
     final field = Container(
       padding: const EdgeInsets.fromLTRB(AppSpacing.sm, 5, AppSpacing.xs, 5),
       decoration: BoxDecoration(
@@ -260,17 +216,9 @@ class AppCopyField extends StatelessWidget {
         mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          AppLineIcon(
-            icon,
-            size: 12,
-            lineHeight: 16.5,
-            color: theme.colorScheme.mutedForeground,
-          ),
+          AppLineIcon(icon, size: 12, lineHeight: 16.5, color: theme.colorScheme.mutedForeground),
           const Gap(AppSpacing.sm),
-          if (compact)
-            Flexible(child: valueText)
-          else
-            Expanded(child: valueText),
+          if (compact) Flexible(child: valueText) else Expanded(child: valueText),
           const Gap(AppSpacing.xs),
           AppIconButton(
             icon: BootstrapIcons.clipboard,
@@ -308,9 +256,7 @@ class AppTooltip extends StatelessWidget {
   Widget build(BuildContext context) {
     // alignment=topCenter 时，气泡实际落在元素下方；bottomCenter 时在上方。
     // side 表示气泡相对元素的位置，决定箭头朝向：上方→箭头朝下，下方→箭头朝上。
-    final side = alignment == Alignment.bottomCenter
-        ? _AppTooltipSide.top
-        : _AppTooltipSide.bottom;
+    final side = alignment == Alignment.bottomCenter ? _AppTooltipSide.top : _AppTooltipSide.bottom;
     return Tooltip(
       alignment: alignment,
       anchorAlignment: anchorAlignment,
@@ -342,10 +288,7 @@ class _AppTooltipBubble extends StatelessWidget {
             painter: _AppTooltipArrowPainter(color: background, side: side),
           ),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: 4,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
           decoration: BoxDecoration(
             color: background,
             borderRadius: BorderRadius.circular(theme.radiusSm),
@@ -406,21 +349,12 @@ class AppIconButton extends StatelessWidget {
   final String? tooltip;
   final Color? color;
 
-  const AppIconButton({
-    super.key,
-    required this.icon,
-    this.onPressed,
-    this.tooltip,
-    this.color,
-  });
+  const AppIconButton({super.key, required this.icon, this.onPressed, this.tooltip, this.color});
 
   @override
   Widget build(BuildContext context) {
     final button = Button(
-      style: ButtonStyle.outline(
-        density: ButtonDensity.icon,
-        size: ButtonSize.small,
-      ),
+      style: ButtonStyle.outline(density: ButtonDensity.icon, size: ButtonSize.small),
       onPressed: onPressed,
       child: Icon(icon, size: 13, color: color),
     );
@@ -457,10 +391,7 @@ class AppBackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Button(
-      style: ButtonStyle.outline(
-        density: ButtonDensity.icon,
-        size: ButtonSize.small,
-      ),
+      style: ButtonStyle.outline(density: ButtonDensity.icon, size: ButtonSize.small),
       onPressed: onPressed,
       child: const Icon(BootstrapIcons.arrowLeft, size: 13),
     );
@@ -534,14 +465,9 @@ class AppNotice extends StatelessWidget {
                   const Gap(AppSpacing.xs),
                   Text(
                     detail!,
-                    style: AppTones.muted(
-                      theme,
-                      size: 11,
-                    ).copyWith(height: 1.4),
+                    style: AppTones.muted(theme, size: 11).copyWith(height: 1.4),
                     maxLines: detailMaxLines,
-                    overflow: detailMaxLines == null
-                        ? TextOverflow.visible
-                        : TextOverflow.ellipsis,
+                    overflow: detailMaxLines == null ? TextOverflow.visible : TextOverflow.ellipsis,
                   ),
                 ],
                 if (footer != null) ...[const Gap(AppSpacing.sm), footer!],
@@ -552,10 +478,7 @@ class AppNotice extends StatelessWidget {
           if (onDismiss != null) ...[
             const Gap(AppSpacing.xs),
             Button(
-              style: ButtonStyle.outline(
-                density: ButtonDensity.icon,
-                size: ButtonSize.small,
-              ),
+              style: ButtonStyle.outline(density: ButtonDensity.icon, size: ButtonSize.small),
               onPressed: onDismiss,
               child: Icon(BootstrapIcons.x, size: 13, color: color),
             ),
@@ -578,10 +501,7 @@ class AppInputFocusTheme extends StatelessWidget {
     return ComponentTheme<FocusOutlineTheme>(
       data: FocusOutlineTheme(
         align: 3,
-        border: Border.all(
-          color: theme.colorScheme.ring.withValues(alpha: 0.22),
-          width: 3,
-        ),
+        border: Border.all(color: theme.colorScheme.ring.withValues(alpha: 0.22), width: 3),
       ),
       child: child,
     );
@@ -617,10 +537,7 @@ class AppField extends StatelessWidget {
     final field = AppInputFocusTheme(
       child: ComponentTheme<TextFieldTheme>(
         data: TextFieldTheme(
-          border: Border.all(
-            color: theme.colorScheme.border.withValues(alpha: 0.68),
-            width: 1,
-          ),
+          border: Border.all(color: theme.colorScheme.border.withValues(alpha: 0.68), width: 1),
           borderRadius: BorderRadius.circular(theme.radiusMd),
         ),
         child: TextField(

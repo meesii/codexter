@@ -25,11 +25,7 @@ class AppTheme {
   ];
 
   static ThemeData get light {
-    return ThemeData(
-      colorScheme: ColorSchemes.lightNeutral,
-      radius: 0.6,
-      typography: _typography,
-    );
+    return ThemeData(colorScheme: ColorSchemes.lightNeutral, radius: 0.6, typography: _typography);
   }
 
   static ThemeData get dark {
@@ -44,10 +40,7 @@ class AppTheme {
     return const Typography.geist().copyWith(
       // UI 以简体中文系统界面字体为首选。Microsoft YaHei UI 同时覆盖 Latin，
       // 可以避免中文 fallback 与 Geist 混排时字面高度、基线和字重观感不一致。
-      sans: () => const TextStyle(
-        fontFamily: 'Microsoft YaHei UI',
-        fontFamilyFallback: _cjkSans,
-      ),
+      sans: () => const TextStyle(fontFamily: 'Microsoft YaHei UI', fontFamilyFallback: _cjkSans),
       // 包内字体手动写完整 family 路径，避免 package 参数把系统 fallback 也加前缀。
       mono: () => const TextStyle(
         fontFamily: 'packages/shadcn_flutter/GeistMono',
@@ -74,9 +67,7 @@ class AppSwitchTheme extends StatelessWidget {
         activeColor: theme.colorScheme.primary,
         inactiveColor: theme.colorScheme.input,
         activeThumbColor: theme.colorScheme.primaryForeground,
-        inactiveThumbColor: dark
-            ? theme.colorScheme.foreground
-            : theme.colorScheme.background,
+        inactiveThumbColor: dark ? theme.colorScheme.foreground : theme.colorScheme.background,
       ),
       child: child,
     );
@@ -93,9 +84,7 @@ class AppTones {
 
   /// 交互强调色与状态色分离：绿色只表达成功/运行，蓝色表达选中与可交互。
   static Color interaction(ThemeData theme) {
-    return theme.colorScheme.brightness == Brightness.dark
-        ? const Color(0xFF60A5FA)
-        : info;
+    return theme.colorScheme.brightness == Brightness.dark ? const Color(0xFF60A5FA) : info;
   }
 
   static Color interactionSurface(ThemeData theme) {
@@ -143,12 +132,7 @@ class AppTones {
         : const Color(0xFFFBFBFC);
   }
 
-  static TextStyle mono(
-    ThemeData theme, {
-    double size = 12,
-    Color? color,
-    FontWeight? weight,
-  }) {
+  static TextStyle mono(ThemeData theme, {double size = 12, Color? color, FontWeight? weight}) {
     return theme.typography.mono.copyWith(
       fontSize: size,
       height: 1.5,

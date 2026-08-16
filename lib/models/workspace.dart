@@ -85,9 +85,7 @@ class Workspace extends HiveObject {
       selectedSkillNames: clearSelectedSkillNames
           ? null
           : (selectedSkillNames ?? this.selectedSkillNames),
-      selectedMcpNames: clearSelectedMcpNames
-          ? null
-          : (selectedMcpNames ?? this.selectedMcpNames),
+      selectedMcpNames: clearSelectedMcpNames ? null : (selectedMcpNames ?? this.selectedMcpNames),
       agentsMode: agentsMode ?? this.agentsMode,
       customAgents: customAgents ?? this.customAgents,
     );

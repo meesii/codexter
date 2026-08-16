@@ -14,10 +14,7 @@ import 'app_toast.dart';
 class AppUpdateDialog {
   const AppUpdateDialog._();
 
-  static Future<void> checkAndShow(
-    BuildContext context,
-    AppState appState,
-  ) async {
+  static Future<void> checkAndShow(BuildContext context, AppState appState) async {
     AppToast.info(context, '正在检查更新…');
     try {
       final result = await appState.checkForUpdates();
@@ -39,10 +36,7 @@ class AppUpdateDialog {
     }
   }
 
-  static Future<void> showAvailable(
-    BuildContext context,
-    AppState appState,
-  ) async {
+  static Future<void> showAvailable(BuildContext context, AppState appState) async {
     final update = appState.availableUpdate;
     if (update == null) {
       await checkAndShow(context, appState);
@@ -50,12 +44,7 @@ class AppUpdateDialog {
     }
     final currentVersion = await AppRuntimeInfo.version;
     if (!context.mounted) return;
-    await _showPrompt(
-      context,
-      appState,
-      currentVersion: currentVersion,
-      update: update,
-    );
+    await _showPrompt(context, appState, currentVersion: currentVersion, update: update);
   }
 
   static Future<void> _showPrompt(
@@ -74,10 +63,7 @@ class AppUpdateDialog {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Codexter v${update.version}',
-                style: AppTones.title(theme, size: 16),
-              ),
+              Text('Codexter v${update.version}', style: AppTones.title(theme, size: 16)),
               const Gap(AppSpacing.sm),
               Text(
                 '当前版本 v$currentVersion，下载完成后将打开安装程序，并关闭 Codexter。请按安装向导完成升级。',
@@ -109,11 +95,7 @@ class AppUpdateDialog {
     );
   }
 
-  static Future<void> _showDownload(
-    BuildContext context,
-    AppState appState,
-    AppUpdateInfo update,
-  ) {
+  static Future<void> _showDownload(BuildContext context, AppState appState, AppUpdateInfo update) {
     return AppDialog.show<void>(
       context: context,
       title: '正在更新 Codexter',
@@ -203,9 +185,7 @@ class _UpdateDownloadContentState extends State<_UpdateDownloadContent> {
           const Gap(AppSpacing.sm),
           Row(
             children: [
-              Expanded(
-                child: Text(_status, style: AppTones.body(theme, size: 12)),
-              ),
+              Expanded(child: Text(_status, style: AppTones.body(theme, size: 12))),
               if (_progress != null)
                 Text(
                   '${(_progress! * 100).clamp(0, 100).toStringAsFixed(0)}%',
@@ -216,11 +196,7 @@ class _UpdateDownloadContentState extends State<_UpdateDownloadContent> {
         ] else ...[
           Text(
             _error!,
-            style: AppTones.body(
-              theme,
-              size: 12,
-              color: theme.colorScheme.destructive,
-            ),
+            style: AppTones.body(theme, size: 12, color: theme.colorScheme.destructive),
           ),
           const Gap(AppSpacing.lg),
           Align(

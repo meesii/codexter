@@ -10,10 +10,7 @@ class SummaryTools {
     registry.register(_summarySchema, (raw) async {
       final args = ToolArgs(raw);
       final title = args.text('title') ?? '本轮处理结束';
-      final summary = args
-          .requireText('summary')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
+      final summary = args.requireText('summary').replaceAll(RegExp(r'\s+'), ' ').trim();
       final endedAt = DateTime.now();
       final fileChanges = context.roundChanges.takeAndReset();
 

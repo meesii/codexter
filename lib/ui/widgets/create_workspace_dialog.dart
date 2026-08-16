@@ -14,29 +14,17 @@ class CreateWorkspaceDialog extends StatefulWidget {
   final AppState appState;
   final Workspace? workspace;
 
-  const CreateWorkspaceDialog({
-    super.key,
-    required this.appState,
-    this.workspace,
-  });
+  const CreateWorkspaceDialog({super.key, required this.appState, this.workspace});
 
   static Future<void> show(BuildContext context, AppState appState) {
     return _show(context, appState);
   }
 
-  static Future<void> showEdit(
-    BuildContext context,
-    AppState appState,
-    Workspace workspace,
-  ) {
+  static Future<void> showEdit(BuildContext context, AppState appState, Workspace workspace) {
     return _show(context, appState, workspace: workspace);
   }
 
-  static Future<void> _show(
-    BuildContext context,
-    AppState appState, {
-    Workspace? workspace,
-  }) {
+  static Future<void> _show(BuildContext context, AppState appState, {Workspace? workspace}) {
     final editing = workspace != null;
     return AppDialog.show<void>(
       context: context,
@@ -44,11 +32,7 @@ class CreateWorkspaceDialog extends StatefulWidget {
       description: '配置工作区路径、可用能力和发送给 ChatGPT 的项目指令。',
       maxWidth: 600,
       maxHeight: 680,
-      content: CreateWorkspaceDialog(
-        key: _formKey,
-        appState: appState,
-        workspace: workspace,
-      ),
+      content: CreateWorkspaceDialog(key: _formKey, appState: appState, workspace: workspace),
       actions: (dialogContext) => [
         Button(
           style: ButtonStyle.outline(size: ButtonSize.normal),
@@ -90,9 +74,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
     final workspace = widget.workspace;
     _nameController = TextEditingController(text: workspace?.name ?? '');
     _pathController = TextEditingController(text: workspace?.projectRoot ?? '');
-    _agentsController = TextEditingController(
-      text: workspace?.customAgents ?? '',
-    );
+    _agentsController = TextEditingController(text: workspace?.customAgents ?? '');
     _agentsPreviewController = TextEditingController();
     _pathController.addListener(_refreshAgentsPreview);
     _refreshAgentsPreview();
@@ -108,8 +90,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
 
     _inheritSkills = workspace?.selectedSkillNames == null;
     _inheritMcps = workspace?.selectedMcpNames == null;
-    _selectedSkills =
-        workspace?.selectedSkillNames?.toSet() ?? enabledSkillNames;
+    _selectedSkills = workspace?.selectedSkillNames?.toSet() ?? enabledSkillNames;
     _selectedMcps = workspace?.selectedMcpNames?.toSet() ?? enabledMcpNames;
     _agentsMode = workspace?.agentsMode ?? Workspace.agentsAuto;
   }
@@ -142,8 +123,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
       });
       return;
     }
-    if (_agentsMode == Workspace.agentsCustom &&
-        _agentsController.text.trim().isEmpty) {
+    if (_agentsMode == Workspace.agentsCustom && _agentsController.text.trim().isEmpty) {
       setState(() {
         _tabIndex = 2;
         _error = '自定义 AGENTS.md 内容不能为空';
@@ -235,9 +215,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
       decoration: BoxDecoration(
         color: theme.colorScheme.muted.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(theme.radiusLg),
-        border: Border.all(
-          color: theme.colorScheme.border.withValues(alpha: 0.75),
-        ),
+        border: Border.all(color: theme.colorScheme.border.withValues(alpha: 0.75)),
       ),
       child: Row(
         children: List.generate(labels.length, (index) {
@@ -259,9 +237,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
                     color: active ? theme.colorScheme.card : Colors.transparent,
                     borderRadius: BorderRadius.circular(theme.radiusMd),
                     border: Border.all(
-                      color: active
-                          ? theme.colorScheme.border
-                          : Colors.transparent,
+                      color: active ? theme.colorScheme.border : Colors.transparent,
                     ),
                     boxShadow: active
                         ? [
@@ -297,16 +273,9 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionIntro(
-          title: '基本设置',
-          description: '定义工作区显示名称和 ChatGPT 可以访问的本地项目目录。',
-        ),
+        _SectionIntro(title: '基本设置', description: '定义工作区显示名称和 ChatGPT 可以访问的本地项目目录。'),
         const Gap(20),
-        AppField(
-          label: '工作区名称',
-          controller: _nameController,
-          placeholder: 'My Project',
-        ),
+        AppField(label: '工作区名称', controller: _nameController, placeholder: 'My Project'),
         const Gap(18),
         AppField(
           label: '项目路径',
@@ -325,25 +294,15 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
 
   Widget _buildCapabilitiesTab() {
     final availableSkills =
-        widget.appState.skills
-            .where((skill) => skill.enabled)
-            .map((skill) => skill.name)
-            .toList()
+        widget.appState.skills.where((skill) => skill.enabled).map((skill) => skill.name).toList()
           ..sort();
     final availableMcps =
-        widget.appState.mcps
-            .where((mcp) => mcp.enabled)
-            .map((mcp) => mcp.name)
-            .toList()
-          ..sort();
+        widget.appState.mcps.where((mcp) => mcp.enabled).map((mcp) => mcp.name).toList()..sort();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionIntro(
-          title: '能力配置',
-          description: '这里只控制当前工作区可见的能力，全局禁用的项目不会出现在这里。',
-        ),
+        _SectionIntro(title: '能力配置', description: '这里只控制当前工作区可见的能力，全局禁用的项目不会出现在这里。'),
         const Gap(14),
         Expanded(
           child: Row(
@@ -353,8 +312,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
                 child: _buildCapabilityCard(
                   title: 'Skills',
                   inheritGlobal: _inheritSkills,
-                  onModeChanged: (inherit) =>
-                      setState(() => _inheritSkills = inherit),
+                  onModeChanged: (inherit) => setState(() => _inheritSkills = inherit),
                   selected: _selectedSkills,
                   available: availableSkills,
                   onToggle: (name) => setState(() {
@@ -369,8 +327,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
                 child: _buildCapabilityCard(
                   title: '下游 MCP',
                   inheritGlobal: _inheritMcps,
-                  onModeChanged: (inherit) =>
-                      setState(() => _inheritMcps = inherit),
+                  onModeChanged: (inherit) => setState(() => _inheritMcps = inherit),
                   selected: _selectedMcps,
                   available: availableMcps,
                   onToggle: (name) => setState(() {
@@ -401,9 +358,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.card,
-        border: Border.all(
-          color: theme.colorScheme.border.withValues(alpha: 0.8),
-        ),
+        border: Border.all(color: theme.colorScheme.border.withValues(alpha: 0.8)),
         borderRadius: BorderRadius.circular(theme.radiusLg),
       ),
       child: Column(
@@ -415,10 +370,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
               Expanded(
                 child: Text(
                   title,
-                  style: theme.typography.sans.copyWith(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: theme.typography.sans.copyWith(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
               ),
               const Gap(16),
@@ -430,10 +382,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
             ],
           ),
           const Gap(10),
-          Container(
-            height: 1,
-            color: theme.colorScheme.border.withValues(alpha: 0.6),
-          ),
+          Container(height: 1, color: theme.colorScheme.border.withValues(alpha: 0.6)),
           const Gap(10),
           Expanded(
             child: available.isEmpty
@@ -457,36 +406,23 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
                           spacing: 8,
                           runSpacing: 6,
                           children: available.map((name) {
-                            final checked =
-                                inheritGlobal || selected.contains(name);
+                            final checked = inheritGlobal || selected.contains(name);
                             return SizedBox(
                               width: itemWidth,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 6,
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                                 decoration: BoxDecoration(
                                   color: theme.colorScheme.muted.withValues(
                                     alpha: inheritGlobal ? 0.22 : 0.35,
                                   ),
-                                  borderRadius: BorderRadius.circular(
-                                    theme.radiusMd,
-                                  ),
+                                  borderRadius: BorderRadius.circular(theme.radiusMd),
                                 ),
                                 child: Checkbox(
-                                  state: checked
-                                      ? CheckboxState.checked
-                                      : CheckboxState.unchecked,
-                                  onChanged: inheritGlobal
-                                      ? null
-                                      : (_) => onToggle(name),
+                                  state: checked ? CheckboxState.checked : CheckboxState.unchecked,
+                                  onChanged: inheritGlobal ? null : (_) => onToggle(name),
                                   enabled: !inheritGlobal,
                                   trailing: Expanded(
-                                    child: Text(
-                                      name,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    child: Text(name, overflow: TextOverflow.ellipsis),
                                   ),
                                 ),
                               ),
@@ -514,19 +450,14 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionIntro(
-          title: 'Agents',
-          description: '控制工作区的 project_instructions；只有“自定义”模式可以修改内容。',
-        ),
+        _SectionIntro(title: 'Agents', description: '控制工作区的 project_instructions；只有“自定义”模式可以修改内容。'),
         const Gap(14),
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: theme.colorScheme.card,
-              border: Border.all(
-                color: theme.colorScheme.border.withValues(alpha: 0.8),
-              ),
+              border: Border.all(color: theme.colorScheme.border.withValues(alpha: 0.8)),
               borderRadius: BorderRadius.circular(theme.radiusLg),
             ),
             child: Column(
@@ -567,9 +498,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
                       label: editable ? '自定义内容' : '内容预览',
                       controller: controller,
                       readOnly: !editable,
-                      placeholder: editable
-                          ? '# Project Instructions\n\n修改代码前先读取相关文件……'
-                          : '暂无内容',
+                      placeholder: editable ? '# Project Instructions\n\n修改代码前先读取相关文件……' : '暂无内容',
                       maxLines: 11,
                       hint: editable
                           ? '只保存在当前工作区配置中，不会改写项目目录里的 AGENTS.md。'
@@ -622,10 +551,7 @@ class _SectionIntro extends StatelessWidget {
       children: [
         Text(
           title,
-          style: theme.typography.sans.copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          style: theme.typography.sans.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
         ),
         const Gap(4),
         Text(

@@ -74,7 +74,5 @@ class GlobalConfigAdapter extends TypeAdapter<GlobalConfig> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is GlobalConfigAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
+      other is GlobalConfigAdapter && runtimeType == other.runtimeType && typeId == other.typeId;
 }

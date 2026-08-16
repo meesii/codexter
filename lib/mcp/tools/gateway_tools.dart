@@ -18,9 +18,7 @@ class GatewayTools {
 
     registry.register(_toolsSchema, (raw) async {
       final name = ToolArgs(raw).text('server');
-      final targets = name == null
-          ? context.downstreamClients
-          : [requireClient(name)];
+      final targets = name == null ? context.downstreamClients : [requireClient(name)];
 
       if (targets.isEmpty) {
         return ToolResult.text(
@@ -39,16 +37,11 @@ class GatewayTools {
           '=== ${client.name} [${client.state.name}] ${client.tools.length} tools ===',
         );
         for (final tool in client.tools) {
-          buffer.writeln(
-            '  ${tool['name']}: ${Fmt.ellipsis('${tool['description'] ?? ''}', 160)}',
-          );
+          buffer.writeln('  ${tool['name']}: ${Fmt.ellipsis('${tool['description'] ?? ''}', 160)}');
         }
         grouped[client.name] = client.tools;
       }
-      return ToolResult.text(
-        buffer.toString(),
-        structured: {'servers': servers, 'tools': grouped},
-      );
+      return ToolResult.text(buffer.toString(), structured: {'servers': servers, 'tools': grouped});
     });
 
     registry.register(_callSchema, (raw) async {
@@ -93,10 +86,7 @@ class GatewayTools {
     return rendered.isEmpty ? Fmt.json(result) : rendered;
   }
 
-  static const _serverProperty = {
-    'type': 'string',
-    'description': 'Downstream MCP name',
-  };
+  static const _serverProperty = {'type': 'string', 'description': 'Downstream MCP name'};
 
   static const _toolsSchema = ToolSchema(
     name: 'mcp_tools',
@@ -110,10 +100,7 @@ class GatewayTools {
     outputSchema: {
       'type': 'object',
       'properties': {
-        'text': {
-          'type': 'string',
-          'description': 'Formatted server and tool list',
-        },
+        'text': {'type': 'string', 'description': 'Formatted server and tool list'},
         'servers': {'type': 'array'},
         'tools': {'type': 'object'},
       },
@@ -136,20 +123,14 @@ class GatewayTools {
       'properties': {
         'server': _serverProperty,
         'tool': {'type': 'string', 'description': 'Downstream tool name'},
-        'arguments': {
-          'type': 'object',
-          'description': 'Arguments for the downstream tool only',
-        },
+        'arguments': {'type': 'object', 'description': 'Arguments for the downstream tool only'},
       },
       'required': ['server', 'tool'],
     },
     outputSchema: {
       'type': 'object',
       'properties': {
-        'text': {
-          'type': 'string',
-          'description': 'Rendered downstream tool result',
-        },
+        'text': {'type': 'string', 'description': 'Rendered downstream tool result'},
       },
       'required': ['text'],
     },

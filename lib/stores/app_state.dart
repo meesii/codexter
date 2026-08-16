@@ -54,8 +54,7 @@ class AppState extends ChangeNotifier {
   Future<UpdateCheckResult>? _updateCheckTask;
   SummaryNotice? _latestSummary;
   int _summaryRevision = 0;
-  bool _systemDark =
-      PlatformDispatcher.instance.platformBrightness == Brightness.dark;
+  bool _systemDark = PlatformDispatcher.instance.platformBrightness == Brightness.dark;
 
   GlobalConfig get config => _config;
   List<Workspace> get workspaces => _workspaces;
@@ -97,9 +96,7 @@ class AppState extends ChangeNotifier {
 
   Workspace? get selectedWorkspace {
     if (_selectedWorkspaceUuid == null) return null;
-    return _workspaces.firstWhereOrNull(
-      (item) => item.uuid == _selectedWorkspaceUuid,
-    );
+    return _workspaces.firstWhereOrNull((item) => item.uuid == _selectedWorkspaceUuid);
   }
 
   Future<void> init() async {
@@ -124,11 +121,7 @@ class AppState extends ChangeNotifier {
     logStore.addListener(notifyListeners);
     await notificationService.initialize();
     if (_config.notificationsEnabled) {
-      unawaited(
-        notificationService.requestPermissions(
-          sound: _config.notificationSound,
-        ),
-      );
+      unawaited(notificationService.requestPermissions(sound: _config.notificationSound));
     }
 
     _initialized = true;
@@ -204,12 +197,7 @@ class AppState extends ChangeNotifier {
     _latestSummary = notice;
     _summaryRevision += 1;
     if (_config.notificationsEnabled) {
-      unawaited(
-        notificationService.showSummary(
-          notice,
-          sound: _config.notificationSound,
-        ),
-      );
+      unawaited(notificationService.showSummary(notice, sound: _config.notificationSound));
     }
     notifyListeners();
   }
@@ -224,10 +212,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> rememberCloseAction({required bool minimizeToTray}) async {
     await saveGlobalConfig(
-      _config.copyWith(
-        closeToTray: minimizeToTray,
-        closeActionRemembered: true,
-      ),
+      _config.copyWith(closeToTray: minimizeToTray, closeActionRemembered: true),
     );
   }
 
@@ -238,9 +223,7 @@ class AppState extends ChangeNotifier {
   Future<void> setNotificationsEnabled(bool enabled) async {
     await saveGlobalConfig(_config.copyWith(notificationsEnabled: enabled));
     if (enabled) {
-      await notificationService.requestPermissions(
-        sound: _config.notificationSound,
-      );
+      await notificationService.requestPermissions(sound: _config.notificationSound);
     }
   }
 
@@ -257,14 +240,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> setSidebarWidth(double width) async {
-    await saveGlobalConfig(
-      _config.copyWith(sidebarWidth: width.clamp(200, 340)),
-    );
+    await saveGlobalConfig(_config.copyWith(sidebarWidth: width.clamp(200, 340)));
   }
 
   void syncSystemTheme() {
-    final systemDark =
-        PlatformDispatcher.instance.platformBrightness == Brightness.dark;
+    final systemDark = PlatformDispatcher.instance.platformBrightness == Brightness.dark;
     if (systemDark == _systemDark) return;
     _systemDark = systemDark;
     if (_config.darkMode == null) notifyListeners();
@@ -344,8 +324,7 @@ class AppState extends ChangeNotifier {
 
   List<McpLogEntry> workspaceLogs(String uuid) => logStore.entriesOf(uuid);
 
-  List<McpLogEntry> recentLogs(String uuid, int count) =>
-      logStore.recentOf(uuid, count);
+  List<McpLogEntry> recentLogs(String uuid, int count) => logStore.recentOf(uuid, count);
 
   void clearWorkspaceLogs(String uuid) => logStore.clearEntries(uuid);
 
@@ -498,9 +477,7 @@ class AppState extends ChangeNotifier {
     switch (check.issue) {
       case TunnelIssueCode.cloudflaredMissing:
         await setupService.downloadCloudflared();
-        await saveGlobalConfig(
-          _config.copyWith(cloudflaredBin: await AppPaths.cloudflaredPath),
-        );
+        await saveGlobalConfig(_config.copyWith(cloudflaredBin: await AppPaths.cloudflaredPath));
         return;
       case TunnelIssueCode.originCertMissing:
         await _ensureCloudflareLogin();
@@ -575,9 +552,7 @@ class AppState extends ChangeNotifier {
 
   Future<String> _resolveCloudflaredBin() async {
     final configured = _config.cloudflaredBin;
-    if (configured != null &&
-        configured.isNotEmpty &&
-        await File(configured).exists()) {
+    if (configured != null && configured.isNotEmpty && await File(configured).exists()) {
       return configured;
     }
     final found = await setupService.findCloudflaredBin();
@@ -654,9 +629,7 @@ class AppState extends ChangeNotifier {
           notifyListeners();
         },
         onCheckComplete: (check) {
-          final index = _doctorChecks.indexWhere(
-            (item) => item.title == check.title,
-          );
+          final index = _doctorChecks.indexWhere((item) => item.title == check.title);
           if (index >= 0) {
             _doctorChecks = List.of(_doctorChecks)..[index] = check;
           } else {

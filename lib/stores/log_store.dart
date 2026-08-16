@@ -54,10 +54,7 @@ class LogStore extends ChangeNotifier {
   }
 
   void add(McpLogEntry entry) {
-    final queue = _entries.putIfAbsent(
-      entry.workspaceUuid,
-      Queue<McpLogEntry>.new,
-    );
+    final queue = _entries.putIfAbsent(entry.workspaceUuid, Queue<McpLogEntry>.new);
     queue.addLast(entry);
     while (queue.length > maxLogEntriesPerWorkspace) {
       queue.removeFirst();
@@ -73,12 +70,7 @@ class LogStore extends ChangeNotifier {
     required bool success,
     String? error,
   }) {
-    entry.complete(
-      response: response,
-      durationMs: durationMs,
-      success: success,
-      error: error,
-    );
+    entry.complete(response: response, durationMs: durationMs, success: success, error: error);
     if (!success) statsOf(entry.workspaceUuid).recordFailure();
     _scheduleNotify();
   }

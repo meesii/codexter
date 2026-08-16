@@ -18,11 +18,7 @@ class TunnelProcessException implements Exception {
   final String message;
   final String log;
 
-  const TunnelProcessException({
-    this.exitCode,
-    required this.message,
-    this.log = '',
-  });
+  const TunnelProcessException({this.exitCode, required this.message, this.log = ''});
 
   @override
   String toString() {
@@ -74,15 +70,11 @@ class TunnelService extends ChangeNotifier {
 
     _configPath = configPath;
     _log.clear();
-    _appendLog(
-      '---- ${DateTime.now().toIso8601String()} start tunnel $tunnelId ----\n',
-    );
+    _appendLog('---- ${DateTime.now().toIso8601String()} start tunnel $tunnelId ----\n');
 
     final stopped = await TunnelProcessGuard.stopOwned(configPath: configPath);
     if (stopped > 0) {
-      _appendLog(
-        '---- stopped $stopped leftover cloudflared owned by this app ----\n',
-      );
+      _appendLog('---- stopped $stopped leftover cloudflared owned by this app ----\n');
       await Future<void>.delayed(const Duration(milliseconds: 400));
     }
 
@@ -100,13 +92,9 @@ class TunnelService extends ChangeNotifier {
     ], environment: Platform.environment);
     final attached = WinKillOnCloseJob.assignPid(_process!.pid);
     if (attached || WinKillOnCloseJob.boundCurrentProcess) {
-      _appendLog(
-        '---- cloudflared pid=${_process!.pid} will exit with app ----\n',
-      );
+      _appendLog('---- cloudflared pid=${_process!.pid} will exit with app ----\n');
     } else if (Platform.isWindows) {
-      _appendLog(
-        '---- cloudflared pid=${_process!.pid} may survive if the app is killed ----\n',
-      );
+      _appendLog('---- cloudflared pid=${_process!.pid} may survive if the app is killed ----\n');
     }
     _running = true;
     notifyListeners();
@@ -134,11 +122,7 @@ class TunnelService extends ChangeNotifier {
       notifyListeners();
       if (!completer.isCompleted) {
         completer.completeError(
-          TunnelProcessException(
-            exitCode: code,
-            message: 'cloudflared 在隧道就绪前退出',
-            log: _log.text,
-          ),
+          TunnelProcessException(exitCode: code, message: 'cloudflared 在隧道就绪前退出', log: _log.text),
         );
       }
     });
@@ -146,10 +130,7 @@ class TunnelService extends ChangeNotifier {
     final timeout = Timer(Duration(seconds: readyTimeoutSec), () {
       if (!completer.isCompleted) {
         completer.completeError(
-          TunnelProcessException(
-            message: '隧道在 ${readyTimeoutSec}s 内未就绪',
-            log: _log.text,
-          ),
+          TunnelProcessException(message: '隧道在 ${readyTimeoutSec}s 内未就绪', log: _log.text),
         );
       }
     });
@@ -191,20 +172,13 @@ class TunnelService extends ChangeNotifier {
     }
   }
 
-  Future<bool> verifyRoute(
-    String publicUrl, {
-    int attempts = 10,
-    int timeoutMs = 5000,
-  }) async {
+  Future<bool> verifyRoute(String publicUrl, {int attempts = 10, int timeoutMs = 5000}) async {
     final uri = Uri.parse(publicUrl);
     for (var attempt = 0; attempt < attempts; attempt++) {
-      final client = HttpClient()
-        ..connectionTimeout = Duration(milliseconds: timeoutMs);
+      final client = HttpClient()..connectionTimeout = Duration(milliseconds: timeoutMs);
       try {
         final request = await client.getUrl(uri);
-        final response = await request.close().timeout(
-          Duration(milliseconds: timeoutMs),
-        );
+        final response = await request.close().timeout(Duration(milliseconds: timeoutMs));
         final status = response.statusCode;
         await response.drain<void>();
         if (status < 500) return true;
@@ -262,10 +236,8 @@ class CloudflaredCommandResult {
     required this.stderr,
   });
 
-  String get combinedOutput => [
-    stdout.trim(),
-    stderr.trim(),
-  ].where((part) => part.isNotEmpty).join('\n');
+  String get combinedOutput =>
+      [stdout.trim(), stderr.trim()].where((part) => part.isNotEmpty).join('\n');
 }
 
 /// cloudflared 命令行调用
@@ -299,11 +271,7 @@ class CloudflaredCli {
     );
   }
 
-  static Future<String> run(
-    String bin,
-    List<String> args, {
-    int timeoutSec = 120,
-  }) async {
+  static Future<String> run(String bin, List<String> args, {int timeoutSec = 120}) async {
     final result = await runDetailed(bin, args, timeoutSec: timeoutSec);
     return result.stdout;
   }

@@ -21,13 +21,10 @@ class AppRuntimeInfo {
   static Future<String>? _version;
   static Future<String>? _versionLabel;
 
-  static Future<PackageInfo> get packageInfo =>
-      _packageInfo ??= PackageInfo.fromPlatform();
+  static Future<PackageInfo> get packageInfo => _packageInfo ??= PackageInfo.fromPlatform();
 
-  static Future<String> get version =>
-      _version ??= packageInfo.then((info) => info.version);
+  static Future<String> get version => _version ??= packageInfo.then((info) => info.version);
 
-  static Future<String> get versionLabel => _versionLabel ??= version.then(
-    (value) => kDebugMode ? 'v$value · DEV' : 'v$value',
-  );
+  static Future<String> get versionLabel =>
+      _versionLabel ??= version.then((value) => kDebugMode ? 'v$value · DEV' : 'v$value');
 }

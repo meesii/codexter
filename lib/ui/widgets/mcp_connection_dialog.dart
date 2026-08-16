@@ -55,16 +55,9 @@ class _McpConnectionContent extends StatelessWidget {
         const Gap(AppSpacing.xl),
         Text('添加到 ChatGPT', style: AppTones.title(theme, size: 12)),
         const Gap(AppSpacing.md),
-        const _ConnectStep(
-          index: 1,
-          text: '打开 ChatGPT → 设置 → 账号安全与登录 → 开启“开发者模式”',
-        ),
+        const _ConnectStep(index: 1, text: '打开 ChatGPT → 设置 → 账号安全与登录 → 开启“开发者模式”'),
         const _ConnectStep(index: 2, text: '在“插件”页面点击“创建”，新建自定义插件'),
-        const _ConnectStep(
-          index: 3,
-          text: '将上方 MCP URL 填入端点地址，并选择“无身份验证”模式',
-          showLine: false,
-        ),
+        const _ConnectStep(index: 3, text: '将上方 MCP URL 填入端点地址，并选择“无身份验证”模式', showLine: false),
       ],
     );
   }
@@ -75,11 +68,7 @@ class _ConnectStep extends StatelessWidget {
   final String text;
   final bool showLine;
 
-  const _ConnectStep({
-    required this.index,
-    required this.text,
-    this.showLine = true,
-  });
+  const _ConnectStep({required this.index, required this.text, this.showLine = true});
 
   TextSpan _buildStepTextSpan(ThemeData theme) {
     final baseStyle = AppTones.body(theme, size: 12).copyWith(height: 1.45);

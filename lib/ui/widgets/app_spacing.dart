@@ -21,8 +21,5 @@ class AppSpacing {
   static const EdgeInsets pagePadding = EdgeInsets.fromLTRB(x2l, xl, x2l, x2l);
   static const EdgeInsets topBarPadding = EdgeInsets.symmetric(horizontal: x2l);
   static const EdgeInsets cardPadding = EdgeInsets.all(lg);
-  static const EdgeInsets tilePadding = EdgeInsets.symmetric(
-    horizontal: md,
-    vertical: md,
-  );
+  static const EdgeInsets tilePadding = EdgeInsets.symmetric(horizontal: md, vertical: md);
 }

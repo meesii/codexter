@@ -66,8 +66,7 @@ class _LogTimelineState extends State<LogTimeline> {
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
-    final reached =
-        position.pixels >= position.maxScrollExtent - _bottomThresholdPx;
+    final reached = position.pixels >= position.maxScrollExtent - _bottomThresholdPx;
     if (reached && !_atBottom) {
       setState(() {
         _atBottom = true;
@@ -204,9 +203,7 @@ class _LogTimelineState extends State<LogTimeline> {
             AppSpacing.md,
           ),
           decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: AppTones.borderSubtle(theme)),
-            ),
+            border: Border(bottom: BorderSide(color: AppTones.borderSubtle(theme))),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -220,12 +217,9 @@ class _LogTimelineState extends State<LogTimeline> {
                   ),
                   const Gap(AppSpacing.lg),
                   Checkbox(
-                    state: _onlyErrors
-                        ? CheckboxState.checked
-                        : CheckboxState.unchecked,
-                    onChanged: (state) => setState(
-                      () => _onlyErrors = state == CheckboxState.checked,
-                    ),
+                    state: _onlyErrors ? CheckboxState.checked : CheckboxState.unchecked,
+                    onChanged: (state) =>
+                        setState(() => _onlyErrors = state == CheckboxState.checked),
                     trailing: const Text('仅看异常'),
                   ),
                   const Spacer(),
@@ -237,8 +231,7 @@ class _LogTimelineState extends State<LogTimeline> {
                   const Gap(AppSpacing.sm),
                   _LogOptionsButton(
                     hideProtocolRequests: _hideProtocolRequests,
-                    canClear:
-                        widget.entries.isNotEmpty && widget.onClear != null,
+                    canClear: widget.entries.isNotEmpty && widget.onClear != null,
                     onHideProtocolRequestsChanged: (value) =>
                         setState(() => _hideProtocolRequests = value),
                     onClear: _clearLogs,
@@ -248,29 +241,18 @@ class _LogTimelineState extends State<LogTimeline> {
               const Gap(AppSpacing.md),
               Row(
                 children: [
-                  AppStat(
-                    icon: BootstrapIcons.lightning,
-                    value: '${widget.toolCalls} 次调用',
-                  ),
+                  AppStat(icon: BootstrapIcons.lightning, value: '${widget.toolCalls} 次调用'),
                   const Gap(AppSpacing.lg),
                   AppStat(
                     icon: BootstrapIcons.exclamationCircle,
                     value: '${widget.errorCount} 次异常',
-                    color: widget.errorCount > 0
-                        ? theme.colorScheme.destructive
-                        : null,
+                    color: widget.errorCount > 0 ? theme.colorScheme.destructive : null,
                   ),
                   const Gap(AppSpacing.lg),
-                  AppStat(
-                    icon: BootstrapIcons.terminal,
-                    value: '${widget.processCount} 个运行进程',
-                  ),
+                  AppStat(icon: BootstrapIcons.terminal, value: '${widget.processCount} 个运行进程'),
                   if (entries.length != widget.entries.length) ...[
                     const Gap(AppSpacing.lg),
-                    AppStat(
-                      icon: BootstrapIcons.funnel,
-                      value: '${entries.length} 条可见',
-                    ),
+                    AppStat(icon: BootstrapIcons.funnel, value: '${entries.length} 条可见'),
                   ],
                 ],
               ),
@@ -310,11 +292,7 @@ class _LogTimelineState extends State<LogTimeline> {
                             void onToggle() => setState(() {
                               _expandedId = expanded ? null : entry.id;
                             });
-                            return _LogTile(
-                              entry: entry,
-                              expanded: expanded,
-                              onToggle: onToggle,
-                            );
+                            return _LogTile(entry: entry, expanded: expanded, onToggle: onToggle);
                           },
                         ),
                         if (_hasNewMsg)
@@ -322,9 +300,7 @@ class _LogTimelineState extends State<LogTimeline> {
                             left: 0,
                             right: 0,
                             bottom: AppSpacing.lg,
-                            child: Center(
-                              child: _NewContentButton(onTap: _jumpToBottom),
-                            ),
+                            child: Center(child: _NewContentButton(onTap: _jumpToBottom)),
                           ),
                       ],
                     );
@@ -373,8 +349,7 @@ class _LogOptionsButtonState extends State<_LogOptionsButton> {
             MenuCheckbox(
               value: widget.hideProtocolRequests,
               child: const Text('隐藏协议请求'),
-              onChanged: (_, value) =>
-                  widget.onHideProtocolRequestsChanged(value),
+              onChanged: (_, value) => widget.onHideProtocolRequestsChanged(value),
             ),
             const MenuDivider(),
             MenuButton(
@@ -398,10 +373,7 @@ class _LogOptionsButtonState extends State<_LogOptionsButton> {
       width: 36,
       height: 36,
       child: Button(
-        style: ButtonStyle.outline(
-          density: ButtonDensity.icon,
-          size: ButtonSize.normal,
-        ),
+        style: ButtonStyle.outline(density: ButtonDensity.icon, size: ButtonSize.normal),
         onPressed: _showMenu,
         child: const Icon(BootstrapIcons.threeDots, size: 15),
       ),
@@ -459,10 +431,7 @@ class _NewContentButton extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary,
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: theme.colorScheme.background,
-                        width: 1,
-                      ),
+                      border: Border.all(color: theme.colorScheme.background, width: 1),
                     ),
                   ),
                 ),
@@ -486,9 +455,7 @@ class _SummaryLogPanel extends StatelessWidget {
     final input = entry.executionArguments ?? const <String, dynamic>{};
     final output = entry.displayResponse ?? const <String, dynamic>{};
     final title =
-        _text(output['title']) ??
-        _text(input['title']) ??
-        (entry.pending ? '正在生成本轮总结' : '本轮总结');
+        _text(output['title']) ?? _text(input['title']) ?? (entry.pending ? '正在生成本轮总结' : '本轮总结');
     final summary = _text(output['summary']) ?? _text(input['summary']) ?? '';
     final fileChanges = _RoundFileChangeData.tryParse(output['fileChanges']);
     final accent = entry.pending
@@ -543,31 +510,20 @@ class _SummaryLogPanel extends StatelessWidget {
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                title,
-                                style: AppTones.title(theme, size: 14),
-                              ),
+                              Text(title, style: AppTones.title(theme, size: 14)),
                               const Gap(3),
-                              Text(
-                                '正在整理本轮结果',
-                                style: AppTones.muted(theme, size: 11),
-                              ),
+                              Text('正在整理本轮结果', style: AppTones.muted(theme, size: 11)),
                             ],
                           )
                         : Align(
                             alignment: Alignment.centerLeft,
-                            child: Text(
-                              title,
-                              style: AppTones.title(theme, size: 14),
-                            ),
+                            child: Text(title, style: AppTones.title(theme, size: 14)),
                           ),
                   ),
                 ),
                 const Gap(AppSpacing.md),
                 Text(
-                  entry.pending
-                      ? entry.clockText
-                      : '${entry.clockText} · ${entry.durationText}',
+                  entry.pending ? entry.clockText : '${entry.clockText} · ${entry.durationText}',
                   style: AppTones.mono(theme, size: 10),
                 ),
               ],
@@ -629,16 +585,10 @@ class _RoundFileChangesState extends State<_RoundFileChanges> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.md,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
             child: Row(
               children: [
-                Text(
-                  '已修改 ${data.files.length} 个文件',
-                  style: AppTones.title(theme, size: 12),
-                ),
+                Text('已修改 ${data.files.length} 个文件', style: AppTones.title(theme, size: 12)),
                 const Spacer(),
                 const SizedBox(width: _roundCopyColumnWidth),
                 SizedBox(
@@ -696,16 +646,12 @@ class _RoundFileChangesState extends State<_RoundFileChanges> {
                 child: Row(
                   children: [
                     Text(
-                      _showAll
-                          ? '收起文件列表'
-                          : '再显示 ${data.files.length - _collapsedCount} 个文件',
+                      _showAll ? '收起文件列表' : '再显示 ${data.files.length - _collapsedCount} 个文件',
                       style: AppTones.muted(theme, size: 11),
                     ),
                     const Gap(4),
                     Icon(
-                      _showAll
-                          ? BootstrapIcons.chevronUp
-                          : BootstrapIcons.chevronDown,
+                      _showAll ? BootstrapIcons.chevronUp : BootstrapIcons.chevronDown,
                       size: 10,
                       color: theme.colorScheme.mutedForeground,
                     ),
@@ -738,22 +684,14 @@ class _RoundFileChangeRow extends StatelessWidget {
       _ => AppTones.info,
     };
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       child: Row(
         children: [
           SizedBox(
             width: 18,
             child: Text(
               statusLabel,
-              style: AppTones.mono(
-                theme,
-                size: 10,
-                color: statusColor,
-                weight: FontWeight.w600,
-              ),
+              style: AppTones.mono(theme, size: 10, color: statusColor, weight: FontWeight.w600),
             ),
           ),
           const Gap(AppSpacing.xs),
@@ -762,11 +700,7 @@ class _RoundFileChangeRow extends StatelessWidget {
               item.path,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppTones.mono(
-                theme,
-                size: 10,
-                color: theme.colorScheme.foreground,
-              ),
+              style: AppTones.mono(theme, size: 10, color: theme.colorScheme.foreground),
             ),
           ),
           SizedBox(
@@ -805,11 +739,7 @@ class _RoundFileChangeRow extends StatelessWidget {
               child: item.additions > 0
                   ? Text(
                       '+${item.additions}',
-                      style: AppTones.mono(
-                        theme,
-                        size: 10,
-                        color: AppTones.success,
-                      ),
+                      style: AppTones.mono(theme, size: 10, color: AppTones.success),
                     )
                   : const SizedBox.shrink(),
             ),
@@ -821,11 +751,7 @@ class _RoundFileChangeRow extends StatelessWidget {
               child: item.deletions > 0
                   ? Text(
                       '-${item.deletions}',
-                      style: AppTones.mono(
-                        theme,
-                        size: 10,
-                        color: theme.colorScheme.destructive,
-                      ),
+                      style: AppTones.mono(theme, size: 10, color: theme.colorScheme.destructive),
                     )
                   : const SizedBox.shrink(),
             ),
@@ -897,11 +823,7 @@ class _LogTile extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
 
-  const _LogTile({
-    required this.entry,
-    required this.expanded,
-    required this.onToggle,
-  });
+  const _LogTile({required this.entry, required this.expanded, required this.onToggle});
 
   @override
   Widget build(BuildContext context) {
@@ -916,10 +838,7 @@ class _LogTile extends StatelessWidget {
       onTap: onToggle,
       selected: expanded,
       borderColor: AppTones.logCardBorder(theme),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -927,19 +846,14 @@ class _LogTile extends StatelessWidget {
           Row(
             children: [
               Icon(
-                expanded
-                    ? BootstrapIcons.chevronDown
-                    : BootstrapIcons.chevronRight,
+                expanded ? BootstrapIcons.chevronDown : BootstrapIcons.chevronRight,
                 size: 11,
                 color: theme.colorScheme.mutedForeground,
               ),
               const Gap(AppSpacing.sm),
               AppStatusDot(tone: tone, size: 6),
               const Gap(AppSpacing.sm),
-              SizedBox(
-                width: 62,
-                child: AppMonoText(entry.clockText, size: 11),
-              ),
+              SizedBox(width: 62, child: AppMonoText(entry.clockText, size: 11)),
               SizedBox(
                 width: 112,
                 child: Text(
@@ -1004,9 +918,7 @@ class _LogTile extends StatelessWidget {
                   child: AppMonoText(
                     entry.pending ? '进行中' : entry.durationText,
                     size: 11,
-                    color: entry.pending
-                        ? AppTones.warning
-                        : AppTones.metricText(theme),
+                    color: entry.pending ? AppTones.warning : AppTones.metricText(theme),
                   ),
                 ),
               ),
@@ -1015,11 +927,7 @@ class _LogTile extends StatelessWidget {
           if (expanded) ...[
             const Gap(AppSpacing.md),
             if (entry.error != null) ...[
-              AppNotice(
-                tone: AppNoticeTone.danger,
-                message: '执行失败',
-                detail: entry.error,
-              ),
+              AppNotice(tone: AppNoticeTone.danger, message: '执行失败', detail: entry.error),
               const Gap(AppSpacing.md),
             ],
             JsonView(
@@ -1028,11 +936,7 @@ class _LogTile extends StatelessWidget {
               scrollable: false,
               previewLines: 18,
               showCopy: true,
-              onOpen: () => _openPayload(
-                context,
-                label: '请求',
-                data: entry.displayRequest,
-              ),
+              onOpen: () => _openPayload(context, label: '请求', data: entry.displayRequest),
             ),
             const Gap(AppSpacing.md),
             JsonView(
@@ -1053,23 +957,14 @@ class _LogTile extends StatelessWidget {
     );
   }
 
-  Future<void> _openPayload(
-    BuildContext context, {
-    required String label,
-    required Object? data,
-  }) {
+  Future<void> _openPayload(BuildContext context, {required String label, required Object? data}) {
     return AppDialog.show<void>(
       context: context,
       title: '${entry.title} · $label',
       description: '完整 $label JSON',
       maxWidth: 720,
       maxHeight: 620,
-      content: JsonView(
-        label: label,
-        data: data,
-        scrollable: false,
-        showCopy: true,
-      ),
+      content: JsonView(label: label, data: data, scrollable: false, showCopy: true),
     );
   }
 }

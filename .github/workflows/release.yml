@@ -56,6 +56,10 @@ jobs:
         shell: pwsh
         run: flutter pub get
 
+      - name: Check formatting
+        shell: pwsh
+        run: dart format --output=none --set-exit-if-changed .
+
       - name: Analyze
         shell: pwsh
         run: flutter analyze

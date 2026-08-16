@@ -109,8 +109,7 @@ class GlobalConfig extends HiveObject {
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       notificationSound: notificationSound ?? this.notificationSound,
       sidebarWidth: sidebarWidth ?? this.sidebarWidth,
-      closeActionRemembered:
-          closeActionRemembered ?? this.closeActionRemembered,
+      closeActionRemembered: closeActionRemembered ?? this.closeActionRemembered,
     );
   }
 }

@@ -112,18 +112,14 @@ class RoundChangeTracker {
     final right = _lines(after);
 
     var prefix = 0;
-    final commonLength = left.length < right.length
-        ? left.length
-        : right.length;
+    final commonLength = left.length < right.length ? left.length : right.length;
     while (prefix < commonLength && left[prefix] == right[prefix]) {
       prefix++;
     }
 
     var leftEnd = left.length;
     var rightEnd = right.length;
-    while (leftEnd > prefix &&
-        rightEnd > prefix &&
-        left[leftEnd - 1] == right[rightEnd - 1]) {
+    while (leftEnd > prefix && rightEnd > prefix && left[leftEnd - 1] == right[rightEnd - 1]) {
       leftEnd--;
       rightEnd--;
     }
@@ -162,17 +158,14 @@ class RoundChangeTracker {
         final index = offset + diagonal;
         int x;
         if (diagonal == -distance ||
-            (diagonal != distance &&
-                furthest[index - 1] < furthest[index + 1])) {
+            (diagonal != distance && furthest[index - 1] < furthest[index + 1])) {
           x = furthest[index + 1];
         } else {
           x = furthest[index - 1] + 1;
         }
 
         var y = x - diagonal;
-        while (x < leftCount &&
-            y < rightCount &&
-            left[leftStart + x] == right[rightStart + y]) {
+        while (x < leftCount && y < rightCount && left[leftStart + x] == right[rightStart + y]) {
           x++;
           y++;
         }

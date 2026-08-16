@@ -28,9 +28,7 @@ void main() {
     });
 
     test('识别缺少 cert.pem', () {
-      final info = TunnelErrorClassifier.classify(
-        '未找到当前环境的 Cloudflare cert.pem，请重新登录 Cloudflare',
-      );
+      final info = TunnelErrorClassifier.classify('未找到当前环境的 Cloudflare cert.pem，请重新登录 Cloudflare');
       expect(info.code, TunnelIssueCode.originCertMissing);
     });
 

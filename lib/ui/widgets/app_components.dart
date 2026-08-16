@@ -89,10 +89,7 @@ class _TopBar extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (titleTrailing != null) ...[
-                      const Gap(AppSpacing.sm),
-                      titleTrailing!,
-                    ],
+                    if (titleTrailing != null) ...[const Gap(AppSpacing.sm), titleTrailing!],
                   ],
                 ),
                 if (subtitle != null)
@@ -149,9 +146,7 @@ class _AppCardState extends State<AppCard> {
       curve: Curves.easeOut,
       padding: widget.padding,
       decoration: BoxDecoration(
-        color: highlight
-            ? AppTones.surfaceRaised(theme)
-            : theme.colorScheme.card,
+        color: highlight ? AppTones.surfaceRaised(theme) : theme.colorScheme.card,
         borderRadius: BorderRadius.circular(theme.radiusLg),
         border: Border.all(
           color: highlight
@@ -165,9 +160,7 @@ class _AppCardState extends State<AppCard> {
     return Padding(
       padding: widget.margin,
       child: MouseRegion(
-        cursor: widget.onTap == null
-            ? MouseCursor.defer
-            : SystemMouseCursors.click,
+        cursor: widget.onTap == null ? MouseCursor.defer : SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: GestureDetector(onTap: widget.onTap, child: card),
@@ -182,12 +175,7 @@ class AppSectionHeader extends StatelessWidget {
   final String? caption;
   final Widget? trailing;
 
-  const AppSectionHeader({
-    super.key,
-    required this.title,
-    this.caption,
-    this.trailing,
-  });
+  const AppSectionHeader({super.key, required this.title, this.caption, this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -200,9 +188,7 @@ class AppSectionHeader extends StatelessWidget {
           Text(title, style: AppTones.title(theme, size: 13)),
           if (caption != null) ...[
             const Gap(AppSpacing.sm),
-            Expanded(
-              child: Text(caption!, style: AppTones.muted(theme, size: 11)),
-            ),
+            Expanded(child: Text(caption!, style: AppTones.muted(theme, size: 11))),
           ] else
             const Spacer(),
           ?trailing,
@@ -243,21 +229,13 @@ class AppEmptyState extends StatelessWidget {
                 borderRadius: BorderRadius.circular(theme.radiusLg),
                 border: Border.all(color: theme.colorScheme.border),
               ),
-              child: Icon(
-                icon,
-                size: 20,
-                color: theme.colorScheme.mutedForeground,
-              ),
+              child: Icon(icon, size: 20, color: theme.colorScheme.mutedForeground),
             ),
             const Gap(AppSpacing.lg),
             Text(title, style: AppTones.title(theme, size: 14)),
             if (subtitle != null) ...[
               const Gap(AppSpacing.sm),
-              Text(
-                subtitle!,
-                textAlign: TextAlign.center,
-                style: AppTones.muted(theme),
-              ),
+              Text(subtitle!, textAlign: TextAlign.center, style: AppTones.muted(theme)),
             ],
             if (action != null) ...[const Gap(AppSpacing.xl), action!],
           ],

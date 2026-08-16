@@ -126,10 +126,7 @@ class DoctorService {
     await run(checkTitles[2], () => _checkTunnelConfig(config));
     await run(checkTitles[3], () async => _checkDomain(config));
     await run(checkTitles[4], () async => _checkServer(config, serverRunning));
-    await run(
-      checkTitles[5],
-      () async => _checkTunnel(config, tunnelRunning, tunnelError),
-    );
+    await run(checkTitles[5], () async => _checkTunnel(config, tunnelRunning, tunnelError));
     await run(checkTitles[6], () => _checkPublicRoute(config));
 
     if (includeOptional) {
@@ -141,11 +138,7 @@ class DoctorService {
   }
 
   DoctorCheck _cloudflareSkipped(String title) {
-    return DoctorCheck(
-      title: title,
-      state: DoctorState.warn,
-      detail: '跳过（未启用 Cloudflare Tunnel）',
-    );
+    return DoctorCheck(title: title, state: DoctorState.warn, detail: '跳过（未启用 Cloudflare Tunnel）');
   }
 
   Future<DoctorCheck> _checkCloudflaredBin(GlobalConfig config) async {
@@ -181,11 +174,7 @@ class DoctorService {
     if (!config.useCloudflared) return _cloudflareSkipped('Cloudflare 登录');
     final certPath = await AppPaths.originCertPath;
     if (await File(certPath).exists()) {
-      return DoctorCheck(
-        title: 'Cloudflare 登录',
-        state: DoctorState.pass,
-        detail: certPath,
-      );
+      return DoctorCheck(title: 'Cloudflare 登录', state: DoctorState.pass, detail: certPath);
     }
     return const DoctorCheck(
       title: 'Cloudflare 登录',
@@ -217,11 +206,7 @@ class DoctorService {
     final configMissing = !await File(ymlPath).exists();
 
     if (!credentialsMissing && !configMissing) {
-      return DoctorCheck(
-        title: 'Tunnel 配置',
-        state: DoctorState.pass,
-        detail: 'id $tunnelId',
-      );
+      return DoctorCheck(title: 'Tunnel 配置', state: DoctorState.pass, detail: 'id $tunnelId');
     }
 
     final missing = <String>[
@@ -232,9 +217,7 @@ class DoctorService {
       title: 'Tunnel 配置',
       state: DoctorState.fail,
       detail: '缺少 ${missing.join(' / ')}',
-      hint: credentialsMissing
-          ? '尝试恢复 Tunnel credentials，再重建本地配置'
-          : '重新生成 cloudflared.yml',
+      hint: credentialsMissing ? '尝试恢复 Tunnel credentials，再重建本地配置' : '重新生成 cloudflared.yml',
       issue: credentialsMissing
           ? TunnelIssueCode.tunnelCredentialsMissing
           : TunnelIssueCode.tunnelConfigMissing,
@@ -266,18 +249,12 @@ class DoctorService {
       state: running ? DoctorState.pass : DoctorState.fail,
       detail: running ? '监听 ${config.host}:${config.port}' : '未运行',
       hint: running ? null : '重新启动本地 MCP 服务',
-      issue: running
-          ? TunnelIssueCode.none
-          : TunnelIssueCode.localServerStopped,
+      issue: running ? TunnelIssueCode.none : TunnelIssueCode.localServerStopped,
       repairable: !running,
     );
   }
 
-  DoctorCheck _checkTunnel(
-    GlobalConfig config,
-    bool running,
-    String? tunnelError,
-  ) {
+  DoctorCheck _checkTunnel(GlobalConfig config, bool running, String? tunnelError) {
     if (!config.useCloudflared) return _cloudflareSkipped('Cloudflare Tunnel');
     if (running) {
       return const DoctorCheck(
@@ -303,26 +280,15 @@ class DoctorService {
 
   Future<DoctorCheck> _checkPublicRoute(GlobalConfig config) async {
     if (config.domain.isEmpty || !config.useCloudflared) {
-      return const DoctorCheck(
-        title: '公网连通性',
-        state: DoctorState.warn,
-        detail: '跳过（未启用公网访问）',
-      );
+      return const DoctorCheck(title: '公网连通性', state: DoctorState.warn, detail: '跳过（未启用公网访问）');
     }
 
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
     try {
-      final request = await client.getUrl(
-        Uri.parse('https://${config.domain}/healthz'),
-      );
-      final response = await request.close().timeout(
-        const Duration(seconds: 10),
-      );
+      final request = await client.getUrl(Uri.parse('https://${config.domain}/healthz'));
+      final response = await request.close().timeout(const Duration(seconds: 10));
       final body = await response.transform(utf8.decoder).join();
-      final info = TunnelErrorClassifier.classify(
-        body,
-        httpStatus: response.statusCode,
-      );
+      final info = TunnelErrorClassifier.classify(body, httpStatus: response.statusCode);
       final cloudflareFailure =
           info.code == TunnelIssueCode.cloudflare1016 ||
           info.code == TunnelIssueCode.cloudflare1033;
@@ -349,9 +315,7 @@ class DoctorService {
       final info = TunnelErrorClassifier.classify(raw);
       if (info.code == TunnelIssueCode.dnsMissing) {
         try {
-          final publicDnsReady = await SetupService().isPublicDnsResolved(
-            config.domain,
-          );
+          final publicDnsReady = await SetupService().isPublicDnsResolved(config.domain);
           if (publicDnsReady) {
             return DoctorCheck(
               title: '公网连通性',
@@ -370,9 +334,7 @@ class DoctorService {
         hint: info.hint,
         rawError: raw,
         issue: info.code,
-        repairable: info.code == TunnelIssueCode.unknown
-            ? true
-            : info.repairable,
+        repairable: info.code == TunnelIssueCode.unknown ? true : info.repairable,
       );
     } finally {
       client.close();
@@ -399,11 +361,7 @@ class DoctorService {
 
   Future<DoctorCheck> _checkWorkspacePaths(List<Workspace> workspaces) async {
     if (workspaces.isEmpty) {
-      return const DoctorCheck(
-        title: '工作区路径',
-        state: DoctorState.warn,
-        detail: '还没有工作区',
-      );
+      return const DoctorCheck(title: '工作区路径', state: DoctorState.warn, detail: '还没有工作区');
     }
 
     final missing = <String>[];

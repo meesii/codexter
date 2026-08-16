@@ -65,7 +65,5 @@ class WorkspaceAdapter extends TypeAdapter<Workspace> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is WorkspaceAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
+      other is WorkspaceAdapter && runtimeType == other.runtimeType && typeId == other.typeId;
 }

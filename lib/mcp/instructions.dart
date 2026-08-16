@@ -24,11 +24,7 @@ class ServerInstructions {
       'Mandatory end-of-round rule: if you use any tool from this MCP server while handling the current user request, you MUST call `summary` exactly once before sending your final response to the user. The summary must be one short user-facing paragraph only: no bullets, numbered lists, detail lists, or line breaks. File changes are tracked automatically, so do not repeat them unless essential to the outcome. Never finish an MCP-assisted request without calling `summary`.',
     ];
 
-    final agents = _resolveAgents(
-      projectRoot: projectRoot,
-      mode: agentsMode,
-      custom: customAgents,
-    );
+    final agents = _resolveAgents(projectRoot: projectRoot, mode: agentsMode, custom: customAgents);
     if (agents != null) {
       sections
         ..add('')
@@ -46,9 +42,7 @@ class ServerInstructions {
     if (skills.isNotEmpty) {
       sections
         ..add('')
-        ..add(
-          'Available Skills (metadata only; use skill_read for the current SKILL.md body):',
-        );
+        ..add('Available Skills (metadata only; use skill_read for the current SKILL.md body):');
       for (final skill in skills) {
         sections.add('- ${skill.name}: ${skill.description}');
       }
@@ -60,13 +54,9 @@ class ServerInstructions {
     if (downstream.isNotEmpty) {
       sections
         ..add('')
-        ..add(
-          'Downstream MCP servers (discover with mcp_tools, invoke with mcp_call):',
-        );
+        ..add('Downstream MCP servers (discover with mcp_tools, invoke with mcp_call):');
       for (final client in downstream) {
-        sections.add(
-          '- ${client.name} [${client.state.name}] ${client.tools.length} tools',
-        );
+        sections.add('- ${client.name} [${client.state.name}] ${client.tools.length} tools');
       }
     }
 

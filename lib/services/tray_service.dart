@@ -17,11 +17,7 @@ class TrayService with tray.TrayListener {
   Future<void> initialize() async {
     if (_initialized || (!Platform.isWindows && !Platform.isMacOS)) return;
     final iconPath = await _materializeIcon();
-    await tray.trayManager.setIcon(
-      iconPath,
-      isTemplate: Platform.isMacOS,
-      iconSize: 18,
-    );
+    await tray.trayManager.setIcon(iconPath, isTemplate: Platform.isMacOS, iconSize: 18);
     await tray.trayManager.setToolTip(appName);
     await tray.trayManager.setContextMenu(
       tray.Menu(
@@ -71,12 +67,8 @@ class TrayService with tray.TrayListener {
   }
 
   Future<String> _materializeIcon() async {
-    final asset = Platform.isWindows
-        ? 'assets/brand/tray_icon.ico'
-        : appLogoAsset;
-    final filename = Platform.isWindows
-        ? 'codexter-tray.ico'
-        : 'codexter-tray.png';
+    final asset = Platform.isWindows ? 'assets/brand/tray_icon.ico' : appLogoAsset;
+    final filename = Platform.isWindows ? 'codexter-tray.ico' : 'codexter-tray.png';
     final data = await rootBundle.load(asset);
     final directory = await getTemporaryDirectory();
     final file = File(p.join(directory.path, filename));

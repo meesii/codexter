@@ -8,10 +8,7 @@ class CloseWindowDecision {
   final bool minimizeToTray;
   final bool remember;
 
-  const CloseWindowDecision({
-    required this.minimizeToTray,
-    required this.remember,
-  });
+  const CloseWindowDecision({required this.minimizeToTray, required this.remember});
 }
 
 class CloseWindowDialog {
@@ -44,9 +41,7 @@ class CloseWindowDialog {
               ),
               const Gap(AppSpacing.lg),
               Checkbox(
-                state: remember
-                    ? CheckboxState.checked
-                    : CheckboxState.unchecked,
+                state: remember ? CheckboxState.checked : CheckboxState.unchecked,
                 onChanged: (_) => setState(() => remember = !remember),
                 trailing: const Text('记住我的选择，下次不再询问'),
               ),
@@ -84,11 +79,7 @@ class _ChoiceHint extends StatelessWidget {
   final String title;
   final String description;
 
-  const _ChoiceHint({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
+  const _ChoiceHint({required this.icon, required this.title, required this.description});
 
   @override
   Widget build(BuildContext context) {
@@ -105,12 +96,7 @@ class _ChoiceHint extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: AppTones.body(
-                  theme,
-                ).copyWith(fontWeight: FontWeight.w600),
-              ),
+              Text(title, style: AppTones.body(theme).copyWith(fontWeight: FontWeight.w600)),
               const Gap(2),
               Text(description, style: AppTones.muted(theme, size: 11)),
             ],

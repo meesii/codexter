@@ -56,8 +56,7 @@ class UpdateCheckResult {
 
   const UpdateCheckResult({required this.currentVersion, required this.latest});
 
-  bool get hasUpdate =>
-      AppUpdateService.compareVersions(latest.version, currentVersion) > 0;
+  bool get hasUpdate => AppUpdateService.compareVersions(latest.version, currentVersion) > 0;
 }
 
 class AppUpdateService {
@@ -68,16 +67,10 @@ class AppUpdateService {
   Future<UpdateCheckResult> check() async {
     final currentVersion = await AppRuntimeInfo.version;
     final data = await _fetchJson(Uri.parse(_manifestUrl));
-    return UpdateCheckResult(
-      currentVersion: currentVersion,
-      latest: AppUpdateInfo.fromJson(data),
-    );
+    return UpdateCheckResult(currentVersion: currentVersion, latest: AppUpdateInfo.fromJson(data));
   }
 
-  Future<File> downloadInstaller(
-    AppUpdateInfo update, {
-    UpdateProgress? onProgress,
-  }) async {
+  Future<File> downloadInstaller(AppUpdateInfo update, {UpdateProgress? onProgress}) async {
     if (!Platform.isWindows) {
       throw UnsupportedError('当前仅支持 Windows 自动安装更新');
     }
@@ -93,9 +86,7 @@ class AppUpdateService {
       }
 
       final tempDir = await getTemporaryDirectory();
-      final file = File(
-        p.join(tempDir.path, '$appName-${update.version}-Setup.exe'),
-      );
+      final file = File(p.join(tempDir.path, '$appName-${update.version}-Setup.exe'));
       if (await file.exists()) await file.delete();
 
       final sink = file.openWrite();
@@ -129,11 +120,7 @@ class AppUpdateService {
     }
     // 使用正常的 Inno Setup 安装界面，不再静默升级。
     // Setup 成功启动后，由 Codexter 主动完成 shutdown 并退出进程。
-    await Process.start(
-      installer.path,
-      const [],
-      mode: ProcessStartMode.detached,
-    );
+    await Process.start(installer.path, const [], mode: ProcessStartMode.detached);
   }
 
   Future<Map<String, dynamic>> _fetchJson(Uri uri) async {
@@ -175,16 +162,10 @@ class AppUpdateService {
   }
 
   static List<int> _parseVersion(String value) {
-    final core = value
-        .trim()
-        .replaceFirst(RegExp(r'^[vV]'), '')
-        .split('-')
-        .first;
+    final core = value.trim().replaceFirst(RegExp(r'^[vV]'), '').split('-').first;
     return core
         .split('.')
-        .map(
-          (part) => int.tryParse(part.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0,
-        )
+        .map((part) => int.tryParse(part.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0)
         .toList(growable: false);
   }
 }

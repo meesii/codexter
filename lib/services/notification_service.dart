@@ -8,8 +8,7 @@ import '../models/summary_notice.dart';
 
 /// 收到 summary 后发送系统通知。平台差异统一收敛在这里。
 class NotificationService {
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   Future<void> initialize() async {
@@ -48,17 +47,12 @@ class NotificationService {
     await initialize();
     if (!Platform.isMacOS) return true;
     final granted = await _plugin
-        .resolvePlatformSpecificImplementation<
-          MacOSFlutterLocalNotificationsPlugin
-        >()
+        .resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(alert: true, sound: sound, badge: false);
     return granted ?? false;
   }
 
-  Future<String?> showSummary(
-    SummaryNotice notice, {
-    required bool sound,
-  }) async {
+  Future<String?> showSummary(SummaryNotice notice, {required bool sound}) async {
     try {
       await initialize();
       if (!_initialized) return '当前平台不支持系统通知';
@@ -67,10 +61,7 @@ class NotificationService {
         title: notice.title,
         body: notice.summary,
         payload: notice.workspaceUuid,
-        notificationDetails: _details(
-          sound: sound,
-          workspaceName: notice.workspaceName,
-        ),
+        notificationDetails: _details(sound: sound, workspaceName: notice.workspaceName),
       );
       return null;
     } catch (error) {
@@ -92,10 +83,7 @@ class NotificationService {
     );
   }
 
-  NotificationDetails _details({
-    required bool sound,
-    required String workspaceName,
-  }) {
+  NotificationDetails _details({required bool sound, required String workspaceName}) {
     return NotificationDetails(
       macOS: DarwinNotificationDetails(
         presentAlert: true,
@@ -107,9 +95,7 @@ class NotificationService {
       windows: WindowsNotificationDetails(
         subtitle: workspaceName,
         audio: sound
-            ? WindowsNotificationAudio.preset(
-                sound: WindowsNotificationSound.defaultSound,
-              )
+            ? WindowsNotificationAudio.preset(sound: WindowsNotificationSound.defaultSound)
             : WindowsNotificationAudio.silent(),
       ),
     );

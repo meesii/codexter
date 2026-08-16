@@ -67,9 +67,7 @@ class _TerminalPanelState extends State<TerminalPanel> {
             AppSpacing.md,
           ),
           decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: AppTones.borderSubtle(theme)),
-            ),
+            border: Border(bottom: BorderSide(color: AppTones.borderSubtle(theme))),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -86,23 +84,15 @@ class _TerminalPanelState extends State<TerminalPanel> {
               const Gap(AppSpacing.md),
               Row(
                 children: [
-                  AppStat(
-                    icon: BootstrapIcons.lightning,
-                    value: '${widget.toolCalls} 次调用',
-                  ),
+                  AppStat(icon: BootstrapIcons.lightning, value: '${widget.toolCalls} 次调用'),
                   const Gap(AppSpacing.lg),
                   AppStat(
                     icon: BootstrapIcons.exclamationCircle,
                     value: '${widget.errorCount} 次异常',
-                    color: widget.errorCount > 0
-                        ? theme.colorScheme.destructive
-                        : null,
+                    color: widget.errorCount > 0 ? theme.colorScheme.destructive : null,
                   ),
                   const Gap(AppSpacing.lg),
-                  AppStat(
-                    icon: BootstrapIcons.terminal,
-                    value: '${widget.processCount} 个运行进程',
-                  ),
+                  AppStat(icon: BootstrapIcons.terminal, value: '${widget.processCount} 个运行进程'),
                 ],
               ),
             ],
@@ -155,20 +145,12 @@ class _TerminalCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              AppStatusDot(
-                tone: info.running ? AppStatusTone.live : AppStatusTone.idle,
-              ),
+              AppStatusDot(tone: info.running ? AppStatusTone.live : AppStatusTone.idle),
               const Gap(AppSpacing.sm),
-              Text(
-                '#${info.processId}',
-                style: AppTones.title(theme, size: 13),
-              ),
+              Text('#${info.processId}', style: AppTones.title(theme, size: 13)),
               const Gap(AppSpacing.sm),
               Expanded(child: AppMonoText(info.label, size: 11)),
-              AppTag(
-                label: info.stateText,
-                color: info.running ? AppTones.success : null,
-              ),
+              AppTag(label: info.stateText, color: info.running ? AppTones.success : null),
               const Gap(AppSpacing.sm),
               AppStat(
                 icon: BootstrapIcons.clock,
@@ -178,10 +160,7 @@ class _TerminalCard extends StatelessWidget {
               Button(
                 style: ButtonStyle.destructive(size: ButtonSize.small),
                 onPressed: info.running ? () => _confirmKill(context) : null,
-                child: const AppButtonLabel(
-                  icon: BootstrapIcons.stopFill,
-                  label: '结束',
-                ),
+                child: const AppButtonLabel(icon: BootstrapIcons.stopFill, label: '结束'),
               ),
             ],
           ),

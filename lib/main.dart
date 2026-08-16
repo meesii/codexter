@@ -50,8 +50,7 @@ class CodexterApp extends StatefulWidget {
 }
 
 /// 关窗前先停掉 cloudflared 与子进程，避免留下孤儿进程
-class _CodexterAppState extends State<CodexterApp>
-    with WindowListener, WidgetsBindingObserver {
+class _CodexterAppState extends State<CodexterApp> with WindowListener, WidgetsBindingObserver {
   late final TrayService _trayService;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   bool _exiting = false;
@@ -112,15 +111,12 @@ class _CodexterAppState extends State<CodexterApp>
     _closePromptOpen = true;
     try {
       final navigatorContext =
-          _navigatorKey.currentState?.overlay?.context ??
-          _navigatorKey.currentContext;
+          _navigatorKey.currentState?.overlay?.context ?? _navigatorKey.currentContext;
       if (navigatorContext == null) return;
       final decision = await CloseWindowDialog.show(navigatorContext);
       if (decision == null) return;
       if (decision.remember) {
-        await widget.appState.rememberCloseAction(
-          minimizeToTray: decision.minimizeToTray,
-        );
+        await widget.appState.rememberCloseAction(minimizeToTray: decision.minimizeToTray);
       }
       if (decision.minimizeToTray) {
         await _hideToTray();

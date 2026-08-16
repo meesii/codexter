@@ -4,10 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('AppUpdateService.compareVersions', () {
     test('newer semantic version is greater', () {
-      expect(
-        AppUpdateService.compareVersions('1.2.0', '1.1.9'),
-        greaterThan(0),
-      );
+      expect(AppUpdateService.compareVersions('1.2.0', '1.1.9'), greaterThan(0));
     });
 
     test('missing segments are treated as zero', () {
@@ -15,10 +12,7 @@ void main() {
     });
 
     test('v prefix and prerelease suffix do not break comparison', () {
-      expect(
-        AppUpdateService.compareVersions('v2.0.1-beta.1', '2.0.0'),
-        greaterThan(0),
-      );
+      expect(AppUpdateService.compareVersions('v2.0.1-beta.1', '2.0.0'), greaterThan(0));
     });
   });
 }

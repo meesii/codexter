@@ -13,11 +13,7 @@ class AppSidebar extends StatelessWidget {
   final AppState appState;
   final VoidCallback onCreateWorkspace;
 
-  const AppSidebar({
-    super.key,
-    required this.appState,
-    required this.onCreateWorkspace,
-  });
+  const AppSidebar({super.key, required this.appState, required this.onCreateWorkspace});
 
   @override
   Widget build(BuildContext context) {
@@ -98,23 +94,17 @@ class AppSidebar extends StatelessWidget {
   }
 
   bool _isActive(AppPage page) {
-    return appState.selectedWorkspaceUuid == null &&
-        appState.currentPage == page;
+    return appState.selectedWorkspaceUuid == null && appState.currentPage == page;
   }
 
   List<Widget> _workspaceItems() {
     if (appState.workspaces.isEmpty) {
       return [
         Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.sm,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
           child: Builder(
-            builder: (context) => Text(
-              '还没有工作区',
-              style: AppTones.muted(Theme.of(context), size: 11),
-            ),
+            builder: (context) =>
+                Text('还没有工作区', style: AppTones.muted(Theme.of(context), size: 11)),
           ),
         ),
       ];
@@ -124,8 +114,7 @@ class AppSidebar extends StatelessWidget {
       final live = appState.isWorkspaceLive(workspace.uuid);
       final activeTool = appState.activeTool(workspace.uuid);
       final latestTool = appState.latestTool(workspace.uuid);
-      final processing =
-          live && (activeTool != null || (latestTool?.pending ?? false));
+      final processing = live && (activeTool != null || (latestTool?.pending ?? false));
       final caption = !live
           ? '已停止'
           : activeTool != null
@@ -166,12 +155,7 @@ class _BrandHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Image.asset(
-            appLogoAsset,
-            width: 24,
-            height: 24,
-            filterQuality: FilterQuality.medium,
-          ),
+          Image.asset(appLogoAsset, width: 24, height: 24, filterQuality: FilterQuality.medium),
           const Gap(AppSpacing.sm),
           Expanded(
             child: Row(
@@ -193,8 +177,7 @@ class _BrandHeader extends StatelessWidget {
                   const Gap(AppSpacing.xs),
                   _UpdateBadge(
                     version: appState.availableUpdate!.version,
-                    onPressed: () =>
-                        AppUpdateDialog.showAvailable(context, appState),
+                    onPressed: () => AppUpdateDialog.showAvailable(context, appState),
                   ),
                 ],
               ],
@@ -205,10 +188,7 @@ class _BrandHeader extends StatelessWidget {
             tooltip: appState.darkMode ? '切换浅色' : '切换深色',
             onPressed: () {
               appState.toggleDarkMode();
-              AppToast.info(
-                context,
-                appState.darkMode ? '已切换至深色模式' : '已切换至浅色模式',
-              );
+              AppToast.info(context, appState.darkMode ? '已切换至深色模式' : '已切换至浅色模式');
             },
           ),
         ],
@@ -285,12 +265,7 @@ class _GroupLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.sm,
-        AppSpacing.sm,
-        0,
-        AppSpacing.xs,
-      ),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, 0, AppSpacing.xs),
       child: Row(
         children: [
           Expanded(
@@ -363,10 +338,7 @@ class _NavItemState extends State<_NavItem> {
         child: Container(
           height: widget.caption == null ? 38 : null,
           margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm,
-            vertical: AppSpacing.sm,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
           decoration: BoxDecoration(
             color: background,
             borderRadius: BorderRadius.circular(theme.radiusMd),
@@ -376,9 +348,7 @@ class _NavItemState extends State<_NavItem> {
               SizedBox(
                 width: 16,
                 child: Center(
-                  child:
-                      widget.leading ??
-                      Icon(widget.icon, size: 14, color: foreground),
+                  child: widget.leading ?? Icon(widget.icon, size: 14, color: foreground),
                 ),
               ),
               const Gap(AppSpacing.sm),
@@ -395,14 +365,10 @@ class _NavItemState extends State<_NavItem> {
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.sans.copyWith(
                         fontSize: 12.5,
-                        fontWeight: widget.active
-                            ? FontWeight.w600
-                            : FontWeight.w500,
+                        fontWeight: widget.active ? FontWeight.w600 : FontWeight.w500,
                         color: widget.active
                             ? theme.colorScheme.foreground
-                            : theme.colorScheme.foreground.withValues(
-                                alpha: 0.85,
-                              ),
+                            : theme.colorScheme.foreground.withValues(alpha: 0.85),
                       ),
                     ),
                     if (widget.caption != null)
@@ -415,10 +381,7 @@ class _NavItemState extends State<_NavItem> {
                   ],
                 ),
               ),
-              if (widget.badge != null) ...[
-                const Gap(AppSpacing.xs),
-                AppTag(label: widget.badge!),
-              ],
+              if (widget.badge != null) ...[const Gap(AppSpacing.xs), AppTag(label: widget.badge!)],
             ],
           ),
         ),
@@ -440,9 +403,7 @@ class _ServiceFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final serverTone = appState.serverRunning
-        ? AppStatusTone.live
-        : AppStatusTone.error;
+    final serverTone = appState.serverRunning ? AppStatusTone.live : AppStatusTone.error;
     final tunnelTone = !appState.config.useCloudflared
         ? AppStatusTone.warn
         : appState.tunnelRunning
@@ -483,10 +444,7 @@ class _ServiceFooter extends StatelessWidget {
                 width: 32,
                 height: 32,
                 child: Button(
-                  style: ButtonStyle.secondary(
-                    density: ButtonDensity.icon,
-                    size: ButtonSize.small,
-                  ),
+                  style: ButtonStyle.secondary(density: ButtonDensity.icon, size: ButtonSize.small),
                   onPressed: appState.busy || !appState.config.useCloudflared
                       ? null
                       : () async {
@@ -495,10 +453,7 @@ class _ServiceFooter extends StatelessWidget {
                           if (appState.lastError == null) {
                             AppToast.success(context, 'Tunnel 已重启');
                           } else {
-                            AppToast.error(
-                              context,
-                              '重启失败：${appState.lastErrorSummary}',
-                            );
+                            AppToast.error(context, '重启失败：${appState.lastErrorSummary}');
                           }
                         },
                   child: const Icon(BootstrapIcons.arrowRepeat, size: 13),
@@ -563,9 +518,7 @@ class _StatusCardState extends State<_StatusCard> {
           color: surface,
           borderRadius: BorderRadius.circular(theme.radiusMd),
           border: Border.all(
-            color: _hovered
-                ? AppTones.borderSubtle(theme)
-                : AppTones.borderFaint(theme),
+            color: _hovered ? AppTones.borderSubtle(theme) : AppTones.borderFaint(theme),
           ),
         ),
         child: Row(
@@ -582,26 +535,17 @@ class _StatusCardState extends State<_StatusCard> {
                     width: _StatusCard._iconSize,
                     height: _StatusCard._iconSize,
                     decoration: BoxDecoration(
-                      color: toneColor.withValues(
-                        alpha: _hovered ? 0.13 : 0.10,
-                      ),
+                      color: toneColor.withValues(alpha: _hovered ? 0.13 : 0.10),
                       borderRadius: BorderRadius.circular(theme.radiusMd),
                     ),
-                    child: Icon(
-                      widget.icon,
-                      size: 16,
-                      color: toneColor.withValues(alpha: 0.94),
-                    ),
+                    child: Icon(widget.icon, size: 16, color: toneColor.withValues(alpha: 0.94)),
                   ),
                   Positioned(
                     right: -2,
                     bottom: -2,
                     child: Container(
                       padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: surface,
-                        shape: BoxShape.circle,
-                      ),
+                      decoration: BoxDecoration(color: surface, shape: BoxShape.circle),
                       child: AppStatusDot(tone: widget.tone, size: 6),
                     ),
                   ),
@@ -618,10 +562,7 @@ class _StatusCardState extends State<_StatusCard> {
                     widget.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTones.body(
-                      theme,
-                      size: 11.5,
-                    ).copyWith(fontWeight: FontWeight.w600),
+                    style: AppTones.body(theme, size: 11.5).copyWith(fontWeight: FontWeight.w600),
                   ),
                   const Gap(2),
                   AppTooltip(
@@ -632,18 +573,13 @@ class _StatusCardState extends State<_StatusCard> {
                       widget.value,
                       size: 10.5,
                       maxLines: 1,
-                      color: theme.colorScheme.foreground.withValues(
-                        alpha: 0.72,
-                      ),
+                      color: theme.colorScheme.foreground.withValues(alpha: 0.72),
                     ),
                   ),
                 ],
               ),
             ),
-            if (widget.action != null) ...[
-              const Gap(AppSpacing.sm),
-              Center(child: widget.action!),
-            ],
+            if (widget.action != null) ...[const Gap(AppSpacing.sm), Center(child: widget.action!)],
           ],
         ),
       ),

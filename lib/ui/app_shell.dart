@@ -48,8 +48,7 @@ class _AppShellState extends State<AppShell> {
                     Positioned.fill(
                       child: AppSidebar(
                         appState: appState,
-                        onCreateWorkspace: () =>
-                            CreateWorkspaceDialog.show(context, appState),
+                        onCreateWorkspace: () => CreateWorkspaceDialog.show(context, appState),
                       ),
                     ),
                     Positioned(
@@ -63,11 +62,10 @@ class _AppShellState extends State<AppShell> {
                           behavior: HitTestBehavior.translucent,
                           onHorizontalDragUpdate: (details) {
                             setState(() {
-                              _sidebarWidth = (_sidebarWidth + details.delta.dx)
-                                  .clamp(
-                                    AppSpacing.sidebarMinWidth,
-                                    AppSpacing.sidebarMaxWidth,
-                                  );
+                              _sidebarWidth = (_sidebarWidth + details.delta.dx).clamp(
+                                AppSpacing.sidebarMinWidth,
+                                AppSpacing.sidebarMaxWidth,
+                              );
                             });
                           },
                           onHorizontalDragEnd: (_) {

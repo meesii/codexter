@@ -27,11 +27,7 @@ const mcpProtocolVersion2026 = '2026-07-28';
 /// - 2026-07-28：stateless + server/discover
 /// - 2025-11-25：legacy initialize 握手（ChatGPT openai-mcp 实际使用的版本）
 /// - 2025-06-18：legacy initialize 握手（早期版本，向后兼容）
-const supportedProtocolVersions = [
-  mcpProtocolVersion2026,
-  '2025-11-25',
-  mcpProtocolVersion,
-];
+const supportedProtocolVersions = [mcpProtocolVersion2026, '2025-11-25', mcpProtocolVersion];
 
 /// 一个工作区的 MCP 端点：解析 JSON-RPC、分发工具、记录日志
 class WorkspaceHandler {
@@ -93,21 +89,13 @@ class WorkspaceHandler {
         return;
       case 'GET':
         request.response.statusCode = HttpStatus.methodNotAllowed;
-        request.response.headers.set(
-          HttpHeaders.allowHeader,
-          'POST, DELETE, OPTIONS',
-        );
+        request.response.headers.set(HttpHeaders.allowHeader, 'POST, DELETE, OPTIONS');
         await request.response.close();
         return;
       default:
         request.response.statusCode = HttpStatus.methodNotAllowed;
-        request.response.headers.set(
-          HttpHeaders.allowHeader,
-          'POST, DELETE, OPTIONS',
-        );
-        await _writeJson(request.response, {
-          'error': 'Only JSON-RPC over POST is supported',
-        });
+        request.response.headers.set(HttpHeaders.allowHeader, 'POST, DELETE, OPTIONS');
+        await _writeJson(request.response, {'error': 'Only JSON-RPC over POST is supported'});
     }
   }
 
@@ -132,9 +120,7 @@ class WorkspaceHandler {
     for (final message in batch) {
       final parsed = JsonRpcRequest.tryParse(message);
       if (parsed == null) {
-        responses.add(
-          JsonRpcResponse.failure(null, JsonRpcError.invalidRequest).toJson(),
-        );
+        responses.add(JsonRpcResponse.failure(null, JsonRpcError.invalidRequest).toJson());
         continue;
       }
       final response = await _process(parsed, message);
@@ -151,10 +137,7 @@ class WorkspaceHandler {
     await _writeBody(request.response, responseBody);
   }
 
-  Future<Map<String, dynamic>?> _process(
-    JsonRpcRequest rpcRequest,
-    Object? rawMessage,
-  ) async {
+  Future<Map<String, dynamic>?> _process(JsonRpcRequest rpcRequest, Object? rawMessage) async {
     final entry = _startLog(rpcRequest, rawMessage);
     final stopwatch = Stopwatch()..start();
 
@@ -162,15 +145,9 @@ class WorkspaceHandler {
     try {
       response = await _dispatch(rpcRequest);
     } on ToolArgError catch (error) {
-      response = JsonRpcResponse.failure(
-        rpcRequest.id,
-        JsonRpcError.params(error.message),
-      );
+      response = JsonRpcResponse.failure(rpcRequest.id, JsonRpcError.params(error.message));
     } catch (error) {
-      response = JsonRpcResponse.failure(
-        rpcRequest.id,
-        JsonRpcError.internal(error),
-      );
+      response = JsonRpcResponse.failure(rpcRequest.id, JsonRpcError.internal(error));
     }
     stopwatch.stop();
 
@@ -192,10 +169,7 @@ class WorkspaceHandler {
       case 'server/discover':
         return JsonRpcResponse.success(rpcRequest.id, _discoverResult());
       case 'initialize':
-        return JsonRpcResponse.success(
-          rpcRequest.id,
-          _initializeResult(rpcRequest),
-        );
+        return JsonRpcResponse.success(rpcRequest.id, _initializeResult(rpcRequest));
       case 'ping':
         return JsonRpcResponse.success(rpcRequest.id, const {});
       case 'notifications/initialized':
@@ -203,10 +177,7 @@ class WorkspaceHandler {
         return JsonRpcResponse.success(rpcRequest.id, const {});
       case 'tools/list':
         return JsonRpcResponse.success(rpcRequest.id, {
-          'tools': tools
-              .listSchemas()
-              .map((schema) => schema.toJson())
-              .toList(),
+          'tools': tools.listSchemas().map((schema) => schema.toJson()).toList(),
           'ttlMs': 300000,
           'cacheScope': 'public',
         });
@@ -227,10 +198,7 @@ class WorkspaceHandler {
           'cacheScope': 'public',
         });
       default:
-        return JsonRpcResponse.failure(
-          rpcRequest.id,
-          JsonRpcError.methodNotFound,
-        );
+        return JsonRpcResponse.failure(rpcRequest.id, JsonRpcError.methodNotFound);
     }
   }
 
@@ -241,10 +209,7 @@ class WorkspaceHandler {
       'supportedVersions': supportedProtocolVersions,
       'capabilities': {'tools': {}, 'resources': {}},
       '_meta': {
-        'io.modelcontextprotocol/serverInfo': {
-          'name': mcpServerName,
-          'version': mcpServerVersion,
-        },
+        'io.modelcontextprotocol/serverInfo': {'name': mcpServerName, 'version': mcpServerVersion},
       },
       'instructions': ServerInstructions.build(
         projectRoot: workspace.projectRoot,
@@ -259,8 +224,7 @@ class WorkspaceHandler {
 
   Map<String, dynamic> _initializeResult(JsonRpcRequest rpcRequest) {
     final requestedVersion = rpcRequest.params?['protocolVersion'] as String?;
-    final negotiatedVersion =
-        supportedProtocolVersions.contains(requestedVersion)
+    final negotiatedVersion = supportedProtocolVersions.contains(requestedVersion)
         ? requestedVersion!
         : mcpProtocolVersion;
     return {
@@ -269,11 +233,7 @@ class WorkspaceHandler {
         'tools': {'listChanged': false},
         'resources': {'listChanged': false, 'subscribe': false},
       },
-      'serverInfo': {
-        'name': mcpServerName,
-        'version': mcpServerVersion,
-        'title': workspace.name,
-      },
+      'serverInfo': {'name': mcpServerName, 'version': mcpServerVersion, 'title': workspace.name},
       'instructions': ServerInstructions.build(
         projectRoot: workspace.projectRoot,
         skills: context.enabledSkills,
@@ -288,10 +248,7 @@ class WorkspaceHandler {
   Future<JsonRpcResponse> _callTool(JsonRpcRequest rpcRequest) async {
     final toolName = rpcRequest.toolName;
     if (toolName == null) {
-      return JsonRpcResponse.failure(
-        rpcRequest.id,
-        JsonRpcError.params('name is required'),
-      );
+      return JsonRpcResponse.failure(rpcRequest.id, JsonRpcError.params('name is required'));
     }
 
     final tool = tools.getTool(toolName);
@@ -334,8 +291,7 @@ class WorkspaceHandler {
       {
         'uri': _workspaceCardUri,
         'name': '${workspace.name} overview',
-        'description':
-            'Workspace card: paths, tools, processes and recent activity.',
+        'description': 'Workspace card: paths, tools, processes and recent activity.',
         'mimeType': 'text/markdown',
       },
       ...McpUiCatalog.resourceList(),
@@ -345,10 +301,7 @@ class WorkspaceHandler {
   JsonRpcResponse _readResource(JsonRpcRequest rpcRequest) {
     final uri = rpcRequest.params?['uri'] as String?;
     if (uri != null) {
-      final uiResource = McpUiCatalog.readResource(
-        uri,
-        widgetDomain: widgetDomain,
-      );
+      final uiResource = McpUiCatalog.readResource(uri, widgetDomain: widgetDomain);
       if (uiResource != null) {
         return JsonRpcResponse.success(rpcRequest.id, {
           'contents': [uiResource],
@@ -358,18 +311,11 @@ class WorkspaceHandler {
       }
     }
     if (uri != _workspaceCardUri) {
-      return JsonRpcResponse.failure(
-        rpcRequest.id,
-        JsonRpcError.params('Unknown resource: $uri'),
-      );
+      return JsonRpcResponse.failure(rpcRequest.id, JsonRpcError.params('Unknown resource: $uri'));
     }
     return JsonRpcResponse.success(rpcRequest.id, {
       'contents': [
-        {
-          'uri': _workspaceCardUri,
-          'mimeType': 'text/markdown',
-          'text': _renderWorkspaceCard(),
-        },
+        {'uri': _workspaceCardUri, 'mimeType': 'text/markdown', 'text': _renderWorkspaceCard()},
       ],
       'ttlMs': 0,
       'cacheScope': 'private',
@@ -389,18 +335,14 @@ class WorkspaceHandler {
       ..writeln('- project_root: `${workspace.projectRoot}`')
       ..writeln('- tools: ${tools.count}')
       ..writeln('- tool calls: ${stats.toolCalls} (errors ${stats.errors})')
-      ..writeln(
-        '- processes: ${processes.where((info) => info.running).length} running',
-      );
+      ..writeln('- processes: ${processes.where((info) => info.running).length} running');
 
     if (recent.isNotEmpty) {
       buffer
         ..writeln()
         ..writeln('## Recent activity');
       for (final item in recent) {
-        buffer.writeln(
-          '- ${item.clockText} ${item.title} ${item.durationText}',
-        );
+        buffer.writeln('- ${item.clockText} ${item.title} ${item.durationText}');
       }
     }
     return buffer.toString();
@@ -436,14 +378,8 @@ class WorkspaceHandler {
 
   void _applyCommonHeaders(HttpResponse response) {
     response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set(
-      'Access-Control-Allow-Headers',
-      'content-type, mcp-session-id, accept',
-    );
-    response.headers.set(
-      'Access-Control-Allow-Methods',
-      'POST, DELETE, OPTIONS',
-    );
+    response.headers.set('Access-Control-Allow-Headers', 'content-type, mcp-session-id, accept');
+    response.headers.set('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
   }
 
   Future<void> _writeJson(HttpResponse response, Map<String, dynamic> payload) {

@@ -83,14 +83,10 @@ class AppPaths {
         return port;
       } catch (_) {}
     }
-    throw Exception(
-      'No available port found in range $start to ${start + 100}',
-    );
+    throw Exception('No available port found in range $start to ${start + 100}');
   }
 
   static String _home() {
-    return Platform.environment['HOME'] ??
-        Platform.environment['USERPROFILE'] ??
-        '.';
+    return Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
   }
 }

@@ -36,10 +36,7 @@ class AppAboutDialog {
                       style: AppTones.muted(theme, size: 12),
                     ),
                     const Gap(AppSpacing.md),
-                    Text(
-                      '本地 MCP 工作区与工具管理客户端',
-                      style: AppTones.body(theme, size: 12),
-                    ),
+                    Text('本地 MCP 工作区与工具管理客户端', style: AppTones.body(theme, size: 12)),
                   ],
                 ),
               ),

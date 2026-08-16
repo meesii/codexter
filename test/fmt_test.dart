@@ -3,10 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('toolArgs prefers exec command content', () {
-    expect(
-      Fmt.toolArgs({'cmd': 'flutter analyze', 'workdir': '.'}),
-      'flutter analyze',
-    );
+    expect(Fmt.toolArgs({'cmd': 'flutter analyze', 'workdir': '.'}), 'flutter analyze');
   });
 
   test('toolArgs summarizes apply patch paths', () {

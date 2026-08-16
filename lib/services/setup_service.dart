@@ -14,16 +14,9 @@ class CloudflareLoginResult {
   final bool alreadyLoggedIn;
   final String? error;
 
-  const CloudflareLoginResult._({
-    required this.success,
-    this.alreadyLoggedIn = false,
-    this.error,
-  });
+  const CloudflareLoginResult._({required this.success, this.alreadyLoggedIn = false, this.error});
 
-  static const alreadyDone = CloudflareLoginResult._(
-    success: true,
-    alreadyLoggedIn: true,
-  );
+  static const alreadyDone = CloudflareLoginResult._(success: true, alreadyLoggedIn: true);
   static const done = CloudflareLoginResult._(success: true);
 
   static CloudflareLoginResult failed(String error) {
@@ -42,9 +35,7 @@ class DownloadProgress {
 
 /// 首次配置向导使用的服务：cloudflared 安装、Cloudflare 登录、Tunnel 创建与 DNS
 class SetupService {
-  static final _uuidRegex = RegExp(
-    r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
-  );
+  static final _uuidRegex = RegExp(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}');
 
   Future<String> get cloudflaredPath => AppPaths.cloudflaredPath;
 
@@ -89,21 +80,16 @@ class SetupService {
 
   Future<String> probeVersion(String bin) async {
     try {
-      final result = await Process.run(bin, [
-        '--version',
-      ], stdoutEncoding: null);
+      final result = await Process.run(bin, ['--version'], stdoutEncoding: null);
       return TextDecode.bytes(result.stdout).trim();
     } catch (_) {
       return '';
     }
   }
 
-  Future<void> downloadCloudflared({
-    void Function(DownloadProgress)? onProgress,
-  }) async {
+  Future<void> downloadCloudflared({void Function(DownloadProgress)? onProgress}) async {
     final targetPath = await cloudflaredPath;
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 30);
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
 
     try {
       final request = await client.getUrl(Uri.parse(_downloadUrl));
@@ -143,10 +129,7 @@ class SetupService {
   }
 
   /// 使用当前应用环境独立的 cert.pem 登录；[force] 用于切换 Zone 时重新授权。
-  Future<CloudflareLoginResult> loginCloudflare(
-    String bin, {
-    bool force = false,
-  }) async {
+  Future<CloudflareLoginResult> loginCloudflare(String bin, {bool force = false}) async {
     await migrateLegacyCloudflareCredentials();
     final certFile = File(await AppPaths.originCertPath);
     if (await certFile.exists() && !force) {
@@ -164,18 +147,13 @@ class SetupService {
     final loginHome = Directory(await AppPaths.cloudflareLoginHome);
     if (await loginHome.exists()) await loginHome.delete(recursive: true);
     await loginHome.create(recursive: true);
-    final generatedCert = File(
-      p.join(loginHome.path, '.cloudflared', 'cert.pem'),
-    );
+    final generatedCert = File(p.join(loginHome.path, '.cloudflared', 'cert.pem'));
     final environment = Map<String, String>.of(Platform.environment)
       ..['HOME'] = loginHome.path
       ..['USERPROFILE'] = loginHome.path;
 
     try {
-      final process = await Process.start(bin, [
-        'tunnel',
-        'login',
-      ], environment: environment);
+      final process = await Process.start(bin, ['tunnel', 'login'], environment: environment);
       final output = StringBuffer();
       final urlRegex = RegExp(r'https://[^\s"]+');
       var opened = false;
@@ -222,9 +200,7 @@ class SetupService {
 
   Future<String> createTunnel(String bin, String tunnelName) async {
     final originCert = await _requireOriginCert();
-    final pendingCredentials = File(
-      p.join(await AppPaths.cloudflareDir, '.pending-tunnel.json'),
-    );
+    final pendingCredentials = File(p.join(await AppPaths.cloudflareDir, '.pending-tunnel.json'));
     if (await pendingCredentials.exists()) await pendingCredentials.delete();
 
     Object? createError;
@@ -249,20 +225,12 @@ class SetupService {
       }
 
       try {
-        final list = await CloudflaredCli.run(bin, [
-          'tunnel',
-          '--origincert',
-          originCert,
-          'list',
-        ]);
+        final list = await CloudflaredCli.run(bin, ['tunnel', '--origincert', originCert, 'list']);
         for (final line in list.split('\n')) {
           if (!line.contains(tunnelName)) continue;
           final existing = _uuidRegex.firstMatch(line)?.group(0);
           if (existing == null) continue;
-          final hasCredentials = await _adoptTunnelCredentials(
-            existing,
-            pendingCredentials,
-          );
+          final hasCredentials = await _adoptTunnelCredentials(existing, pendingCredentials);
           if (!hasCredentials) {
             throw Exception('已找到 Tunnel $existing，但本机缺少对应 credentials 文件');
           }
@@ -301,10 +269,7 @@ class SetupService {
         tunnelId,
         domain,
       ]);
-      final actualHostname = _findUnexpectedDnsHostname(
-        result.combinedOutput,
-        domain,
-      );
+      final actualHostname = _findUnexpectedDnsHostname(result.combinedOutput, domain);
       if (actualHostname != null) {
         throw Exception(
           'DNS-ZONE-MISMATCH：当前 cert.pem 不属于 $domain 对应的 Cloudflare Zone。'
@@ -322,11 +287,7 @@ class SetupService {
 
   /// 创建或修复 DNS；Zone 不匹配或权限错误时强制重新授权一次，
   /// 最终还要通过 1.1.1.1 DoH 验证真实域名已经可解析。
-  Future<void> ensureDnsRoute(
-    String bin,
-    String tunnelId,
-    String domain,
-  ) async {
+  Future<void> ensureDnsRoute(String bin, String tunnelId, String domain) async {
     try {
       await routeDns(bin, tunnelId, domain);
     } catch (error) {
@@ -357,24 +318,17 @@ class SetupService {
       }
       if (attempt < attempts - 1) await Future<void>.delayed(interval);
     }
-    throw Exception(
-      'DNS 路由命令已执行，但公网 DNS 验证未通过：$domain。${lastError == null ? '' : ' $lastError'}',
-    );
+    throw Exception('DNS 路由命令已执行，但公网 DNS 验证未通过：$domain。${lastError == null ? '' : ' $lastError'}');
   }
 
   /// 使用 Cloudflare 1.1.1.1 DoH 绕过本机/路由器的 NXDOMAIN 负缓存。
   Future<bool> isPublicDnsResolved(String domain) async {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
     try {
-      final uri = Uri.https('cloudflare-dns.com', '/dns-query', {
-        'name': domain,
-        'type': 'A',
-      });
+      final uri = Uri.https('cloudflare-dns.com', '/dns-query', {'name': domain, 'type': 'A'});
       final request = await client.getUrl(uri);
       request.headers.set(HttpHeaders.acceptHeader, 'application/dns-json');
-      final response = await request.close().timeout(
-        const Duration(seconds: 6),
-      );
+      final response = await request.close().timeout(const Duration(seconds: 6));
       if (response.statusCode != 200) {
         throw Exception('DoH HTTP ${response.statusCode}');
       }
@@ -401,8 +355,7 @@ class SetupService {
   }
 
   bool _shouldReloginForDns(String message) {
-    return _isDnsAuthorizationError(message) ||
-        message.toLowerCase().contains('dns-zone-mismatch');
+    return _isDnsAuthorizationError(message) || message.toLowerCase().contains('dns-zone-mismatch');
   }
 
   bool _isDnsAuthorizationError(String message) {
@@ -448,10 +401,7 @@ class SetupService {
     return path;
   }
 
-  Future<bool> _adoptTunnelCredentials(
-    String tunnelId,
-    File pendingCredentials,
-  ) async {
+  Future<bool> _adoptTunnelCredentials(String tunnelId, File pendingCredentials) async {
     final target = File(await AppPaths.credentialsPath(tunnelId));
     if (await target.exists()) return true;
     if (await pendingCredentials.exists()) {
@@ -462,10 +412,7 @@ class SetupService {
     return ensureTunnelCredentials(tunnelId);
   }
 
-  Future<GlobalConfig> writeTunnelConfig(
-    GlobalConfig config,
-    String tunnelId,
-  ) async {
+  Future<GlobalConfig> writeTunnelConfig(GlobalConfig config, String tunnelId) async {
     final credentialsFile = await AppPaths.credentialsPath(tunnelId);
     final configPath = await AppPaths.cloudflaredConfigPath;
     if (!await ensureTunnelCredentials(tunnelId)) {
@@ -500,8 +447,7 @@ class SetupService {
     }
   }
 
-  static const githubReleasesUrl =
-      'https://github.com/cloudflare/cloudflared/releases/latest';
+  static const githubReleasesUrl = 'https://github.com/cloudflare/cloudflared/releases/latest';
 
   String get githubAssetName {
     if (Platform.isWindows) return 'cloudflared-windows-amd64.exe';
@@ -510,25 +456,20 @@ class SetupService {
     return 'cloudflared-linux-$arch';
   }
 
-  String get managedBinName =>
-      Platform.isWindows ? 'cloudflared.exe' : 'cloudflared';
+  String get managedBinName => Platform.isWindows ? 'cloudflared.exe' : 'cloudflared';
 
   String get _downloadUrl {
-    final base =
-        'https://github.com/cloudflare/cloudflared/releases/download/$cloudflaredVersion';
+    final base = 'https://github.com/cloudflare/cloudflared/releases/download/$cloudflaredVersion';
     return '$base/$githubAssetName';
   }
 
   bool get _isArm64 {
     if (Platform.version.contains('arm64')) return true;
-    final arch =
-        Platform.environment['PROCESSOR_ARCHITECTURE']?.toLowerCase() ?? '';
+    final arch = Platform.environment['PROCESSOR_ARCHITECTURE']?.toLowerCase() ?? '';
     return arch.contains('arm');
   }
 
   String _homeDir() {
-    return Platform.environment['HOME'] ??
-        Platform.environment['USERPROFILE'] ??
-        '.';
+    return Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
   }
 }

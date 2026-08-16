@@ -50,7 +50,5 @@ class SkillEntryAdapter extends TypeAdapter<SkillEntry> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SkillEntryAdapter &&
-          runtimeType == other.runtimeType &&
-          typeId == other.typeId;
+      other is SkillEntryAdapter && runtimeType == other.runtimeType && typeId == other.typeId;
 }

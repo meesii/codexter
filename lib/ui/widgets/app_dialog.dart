@@ -40,9 +40,10 @@ class AppDialog {
           curve: Curves.easeOut,
           reverseCurve: Curves.easeIn,
         );
-        final dialogScale = Tween<double>(begin: 0.96, end: 1).animate(
-          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-        );
+        final dialogScale = Tween<double>(
+          begin: 0.96,
+          end: 1,
+        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
         final scrimColor = Colors.black.withValues(alpha: dark ? 0.30 : 0.18);
 
         return Stack(
@@ -88,18 +89,14 @@ class AppDialog {
                                   ? SingleChildScrollView(
                                       // 为 3px 外扩的 focus ring 预留完整绘制空间，
                                       // 同时继续由 ClipRect 限制正文不覆盖固定标题区。
-                                      padding: const EdgeInsets.all(
-                                        AppSpacing.xs,
-                                      ),
+                                      padding: const EdgeInsets.all(AppSpacing.xs),
                                       child: _DialogContent(
                                         description: description,
                                         content: content,
                                       ),
                                     )
                                   : Padding(
-                                      padding: const EdgeInsets.all(
-                                        AppSpacing.xs,
-                                      ),
+                                      padding: const EdgeInsets.all(AppSpacing.xs),
                                       child: _DialogContent(
                                         description: description,
                                         content: content,
@@ -118,8 +115,7 @@ class AppDialog {
                                 density: ButtonDensity.icon,
                                 size: ButtonSize.small,
                               ),
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop(),
+                              onPressed: () => Navigator.of(dialogContext).pop(),
                               child: const Icon(BootstrapIcons.x, size: 13),
                             ),
                           ),
@@ -132,8 +128,7 @@ class AppDialog {
           ],
         );
       },
-      transitionBuilder: (context, animation, secondaryAnimation, child) =>
-          child,
+      transitionBuilder: (context, animation, secondaryAnimation, child) => child,
     );
   }
 
@@ -148,8 +143,7 @@ class AppDialog {
       context: context,
       title: title,
       content: Builder(
-        builder: (context) =>
-            Text(message, style: AppTones.body(Theme.of(context))),
+        builder: (context) => Text(message, style: AppTones.body(Theme.of(context))),
       ),
       maxWidth: 380,
       actions: (dialogContext) => [
@@ -184,10 +178,7 @@ class _DialogContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (description != null) ...[
-          Text(
-            description!,
-            style: AppTones.muted(Theme.of(context), size: 12),
-          ),
+          Text(description!, style: AppTones.muted(Theme.of(context), size: 12)),
           const Gap(AppSpacing.lg),
         ],
         content,

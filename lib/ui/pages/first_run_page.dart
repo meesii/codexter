@@ -76,17 +76,11 @@ class _FirstRunPageState extends State<FirstRunPage> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             if (_error != null) ...[
-                              AppNotice(
-                                tone: AppNoticeTone.danger,
-                                message: _error!,
-                              ),
+                              AppNotice(tone: AppNoticeTone.danger, message: _error!),
                               const Gap(AppSpacing.lg),
                             ],
                             if (_status != null && _step != 0) ...[
-                              AppNotice(
-                                tone: AppNoticeTone.info,
-                                message: _status!,
-                              ),
+                              AppNotice(tone: AppNoticeTone.info, message: _status!),
                               const Gap(AppSpacing.lg),
                             ],
                             _buildStepBody(),
@@ -104,16 +98,11 @@ class _FirstRunPageState extends State<FirstRunPage> {
             top: AppSpacing.lg,
             right: AppSpacing.lg,
             child: AppIconButton(
-              icon: widget.appState.darkMode
-                  ? BootstrapIcons.sun
-                  : BootstrapIcons.moon,
+              icon: widget.appState.darkMode ? BootstrapIcons.sun : BootstrapIcons.moon,
               tooltip: widget.appState.darkMode ? '切换浅色' : '切换深色',
               onPressed: () {
                 widget.appState.toggleDarkMode();
-                AppToast.info(
-                  context,
-                  widget.appState.darkMode ? '已切换至深色模式' : '已切换至浅色模式',
-                );
+                AppToast.info(context, widget.appState.darkMode ? '已切换至深色模式' : '已切换至浅色模式');
               },
             ),
           ),
@@ -133,10 +122,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
         children: [
           Text('欢迎使用 $appName', style: AppTones.title(theme, size: 18)),
           const Gap(AppSpacing.xs),
-          Text(
-            '配置一次公网入口，之后每个工作区会自动获得独立的 UUID 地址。',
-            style: AppTones.muted(theme),
-          ),
+          Text('配置一次公网入口，之后每个工作区会自动获得独立的 UUID 地址。', style: AppTones.muted(theme)),
           const Gap(AppSpacing.xl),
           StepIndicator(labels: _stepLabels, activeIndex: _step),
         ],
@@ -258,8 +244,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
       setState(() => _error = '请先安装 cloudflared');
       return;
     }
-    if (_step == 1 &&
-        _setupService.normalizeDomain(_domainController.text).isEmpty) {
+    if (_step == 1 && _setupService.normalizeDomain(_domainController.text).isEmpty) {
       setState(() => _error = '请输入有效域名');
       return;
     }

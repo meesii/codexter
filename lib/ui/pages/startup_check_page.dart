@@ -12,11 +12,7 @@ class StartupCheckPage extends StatefulWidget {
   final AppState appState;
   final VoidCallback onContinue;
 
-  const StartupCheckPage({
-    super.key,
-    required this.appState,
-    required this.onContinue,
-  });
+  const StartupCheckPage({super.key, required this.appState, required this.onContinue});
 
   @override
   State<StartupCheckPage> createState() => _StartupCheckPageState();
@@ -70,9 +66,7 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
         },
       );
       if (!mounted) return;
-      final failed = checks
-          .where((check) => check.state == DoctorState.fail)
-          .toList();
+      final failed = checks.where((check) => check.state == DoctorState.fail).toList();
       setState(() {
         _checks = checks;
         _activeTitle = null;
@@ -119,8 +113,7 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final failed = _failedChecks;
-    final showFailures =
-        !_checking && (failed.isNotEmpty || _repairError != null);
+    final showFailures = !_checking && (failed.isNotEmpty || _repairError != null);
 
     return Scaffold(
       child: Container(
@@ -159,10 +152,7 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_checking) ...[
-                        const SizedBox.square(
-                          dimension: 14,
-                          child: CircularProgressIndicator(),
-                        ),
+                        const SizedBox.square(dimension: 14, child: CircularProgressIndicator()),
                         const Gap(AppSpacing.sm),
                       ],
                       Flexible(
@@ -198,9 +188,7 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
                             _StartupIssueTile(
                               check: check,
                               repairing: _repairingTitle == check.title,
-                              onRepair: check.repairable
-                                  ? () => _repair(check)
-                                  : null,
+                              onRepair: check.repairable ? () => _repair(check) : null,
                             ),
                             if (check != failed.last) const Gap(AppSpacing.sm),
                           ],
@@ -218,12 +206,8 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               Button(
-                                style: ButtonStyle.outline(
-                                  size: ButtonSize.normal,
-                                ),
-                                onPressed: _repairingTitle == null
-                                    ? _runChecks
-                                    : null,
+                                style: ButtonStyle.outline(size: ButtonSize.normal),
+                                onPressed: _repairingTitle == null ? _runChecks : null,
                                 child: const AppButtonLabel(
                                   icon: BootstrapIcons.arrowRepeat,
                                   label: '重新检测',
@@ -231,12 +215,8 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
                               ),
                               const Gap(AppSpacing.sm),
                               Button(
-                                style: ButtonStyle.primary(
-                                  size: ButtonSize.normal,
-                                ),
-                                onPressed: _repairingTitle == null
-                                    ? widget.onContinue
-                                    : null,
+                                style: ButtonStyle.primary(size: ButtonSize.normal),
+                                onPressed: _repairingTitle == null ? widget.onContinue : null,
                                 child: const Text('仍然进入主页面'),
                               ),
                             ],
@@ -260,11 +240,7 @@ class _StartupIssueTile extends StatelessWidget {
   final bool repairing;
   final VoidCallback? onRepair;
 
-  const _StartupIssueTile({
-    required this.check,
-    required this.repairing,
-    required this.onRepair,
-  });
+  const _StartupIssueTile({required this.check, required this.repairing, required this.onRepair});
 
   @override
   Widget build(BuildContext context) {
@@ -289,11 +265,7 @@ class _StartupIssueTile extends StatelessWidget {
               color: color.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(theme.radiusMd),
             ),
-            child: Icon(
-              BootstrapIcons.exclamationTriangle,
-              size: 15,
-              color: color,
-            ),
+            child: Icon(BootstrapIcons.exclamationTriangle, size: 15, color: color),
           ),
           const Gap(AppSpacing.md),
           Expanded(
@@ -302,12 +274,7 @@ class _StartupIssueTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Flexible(
-                      child: Text(
-                        check.title,
-                        style: AppTones.title(theme, size: 12.5),
-                      ),
-                    ),
+                    Flexible(child: Text(check.title, style: AppTones.title(theme, size: 12.5))),
                     const Gap(AppSpacing.sm),
                     AppTag(label: _issueLabel(check.issue), color: color),
                   ],
@@ -332,10 +299,7 @@ class _StartupIssueTile extends StatelessWidget {
               style: ButtonStyle.outline(size: ButtonSize.small),
               onPressed: repairing ? null : onRepair,
               child: repairing
-                  ? const SizedBox.square(
-                      dimension: 12,
-                      child: CircularProgressIndicator(),
-                    )
+                  ? const SizedBox.square(dimension: 12, child: CircularProgressIndicator())
                   : const Text('修复'),
             ),
           ],

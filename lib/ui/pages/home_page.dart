@@ -31,10 +31,7 @@ class HomePage extends StatelessWidget {
         Button(
           style: ButtonStyle.primary(size: ButtonSize.normal),
           onPressed: () => CreateWorkspaceDialog.show(context, appState),
-          child: const AppButtonLabel(
-            icon: BootstrapIcons.plus,
-            label: '新建工作区',
-          ),
+          child: const AppButtonLabel(icon: BootstrapIcons.plus, label: '新建工作区'),
         ),
       ],
       child: workspaceCount == 0 ? _buildEmpty(context) : _buildList(context),
@@ -62,8 +59,7 @@ class HomePage extends StatelessWidget {
   Widget _buildList(BuildContext context) {
     return ListView.builder(
       padding: AppSpacing.pagePadding,
-      itemCount:
-          appState.workspaces.length + (appState.lastError == null ? 0 : 1),
+      itemCount: appState.workspaces.length + (appState.lastError == null ? 0 : 1),
       itemBuilder: (context, index) {
         if (appState.lastError != null && index == 0) {
           return Padding(
@@ -119,10 +115,7 @@ class HomePage extends StatelessWidget {
       title: 'Tunnel 日志',
       maxWidth: 720,
       maxHeight: 520,
-      content: ConsoleView(
-        text: appState.tunnelService.logTail,
-        maxHeight: 360,
-      ),
+      content: ConsoleView(text: appState.tunnelService.logTail, maxHeight: 360),
     );
   }
 }
@@ -131,11 +124,7 @@ class WorkspaceCard extends StatelessWidget {
   final AppState appState;
   final Workspace workspace;
 
-  const WorkspaceCard({
-    super.key,
-    required this.appState,
-    required this.workspace,
-  });
+  const WorkspaceCard({super.key, required this.appState, required this.workspace});
 
   @override
   Widget build(BuildContext context) {
@@ -146,12 +135,8 @@ class WorkspaceCard extends StatelessWidget {
         .workspaceLogs(workspace.uuid)
         .where((entry) => entry.isToolCall)
         .toList(growable: false);
-    final recent = toolLogs.length <= 4
-        ? toolLogs
-        : toolLogs.sublist(toolLogs.length - 4);
-    final currentErrorCount = toolLogs
-        .where((entry) => !entry.pending && !entry.success)
-        .length;
+    final recent = toolLogs.length <= 4 ? toolLogs : toolLogs.sublist(toolLogs.length - 4);
+    final currentErrorCount = toolLogs.where((entry) => !entry.pending && !entry.success).length;
 
     return AppCard(
       onTap: () => appState.selectWorkspace(workspace.uuid),
@@ -165,9 +150,7 @@ class WorkspaceCard extends StatelessWidget {
                 Container(
                   width: 4,
                   decoration: BoxDecoration(
-                    color: live
-                        ? AppTones.success
-                        : theme.colorScheme.mutedForeground,
+                    color: live ? AppTones.success : theme.colorScheme.mutedForeground,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -180,11 +163,7 @@ class WorkspaceCard extends StatelessWidget {
                       Text(workspace.name, style: AppTones.title(theme)),
                       AppTooltip(
                         message: workspace.projectRoot,
-                        child: AppMonoText(
-                          workspace.projectRoot,
-                          size: 11,
-                          maxLines: 1,
-                        ),
+                        child: AppMonoText(workspace.projectRoot, size: 11, maxLines: 1),
                       ),
                     ],
                   ),
@@ -193,23 +172,15 @@ class WorkspaceCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    AppTag(
-                      label: live ? '运行中' : '已停止',
-                      color: live ? AppTones.success : null,
-                    ),
+                    AppTag(label: live ? '运行中' : '已停止', color: live ? AppTones.success : null),
                     const Gap(AppSpacing.md),
                     Switch(
                       value: workspace.enabled,
-                      onChanged: (value) =>
-                          appState.toggleWorkspace(workspace.uuid, value),
+                      onChanged: (value) => appState.toggleWorkspace(workspace.uuid, value),
                     ),
                     const Gap(AppSpacing.md),
                     _WorkspaceMoreButton(
-                      onEdit: () => CreateWorkspaceDialog.showEdit(
-                        context,
-                        appState,
-                        workspace,
-                      ),
+                      onEdit: () => CreateWorkspaceDialog.showEdit(context, appState, workspace),
                       onDelete: () => _confirmDelete(context),
                     ),
                   ],
@@ -220,10 +191,7 @@ class WorkspaceCard extends StatelessWidget {
           const Gap(AppSpacing.md),
           Row(
             children: [
-              AppStat(
-                icon: BootstrapIcons.lightning,
-                value: '${stats.toolCalls} 次调用',
-              ),
+              AppStat(icon: BootstrapIcons.lightning, value: '${stats.toolCalls} 次调用'),
               const Gap(AppSpacing.lg),
               AppStat(
                 icon: BootstrapIcons.terminal,
@@ -233,23 +201,15 @@ class WorkspaceCard extends StatelessWidget {
               AppStat(
                 icon: BootstrapIcons.exclamationCircle,
                 value: '$currentErrorCount 次异常',
-                color: currentErrorCount > 0
-                    ? theme.colorScheme.destructive
-                    : null,
+                color: currentErrorCount > 0 ? theme.colorScheme.destructive : null,
               ),
               if (stats.lastActiveAt != null) ...[
                 const Gap(AppSpacing.lg),
-                AppStat(
-                  icon: BootstrapIcons.clock,
-                  value: Fmt.clock(stats.lastActiveAt!),
-                ),
+                AppStat(icon: BootstrapIcons.clock, value: Fmt.clock(stats.lastActiveAt!)),
               ],
             ],
           ),
-          if (recent.isNotEmpty) ...[
-            const Gap(AppSpacing.md),
-            _RecentActivity(entries: recent),
-          ],
+          if (recent.isNotEmpty) ...[const Gap(AppSpacing.md), _RecentActivity(entries: recent)],
         ],
       ),
     );
@@ -320,12 +280,7 @@ class _WorkspaceMoreButtonState extends State<_WorkspaceMoreButton> {
                     color: Theme.of(context).colorScheme.destructive,
                   ),
                   const Gap(AppSpacing.sm),
-                  Text(
-                    '删除工作区',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.destructive,
-                    ),
-                  ),
+                  Text('删除工作区', style: TextStyle(color: Theme.of(context).colorScheme.destructive)),
                 ],
               ),
             ),
@@ -342,11 +297,7 @@ class _WorkspaceMoreButtonState extends State<_WorkspaceMoreButton> {
 
   @override
   Widget build(BuildContext context) {
-    return AppIconButton(
-      icon: BootstrapIcons.threeDots,
-      tooltip: '更多操作',
-      onPressed: _showMenu,
-    );
+    return AppIconButton(icon: BootstrapIcons.threeDots, tooltip: '更多操作', onPressed: _showMenu);
   }
 }
 
@@ -359,10 +310,7 @@ class _RecentActivity extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppTones.surfaceSunken(theme),
         borderRadius: BorderRadius.circular(theme.radiusMd),
@@ -391,11 +339,7 @@ class _ActivityLine extends StatelessWidget {
             displayText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTones.body(
-              theme,
-              size: 10,
-              color: theme.colorScheme.mutedForeground,
-            ),
+            style: AppTones.body(theme, size: 10, color: theme.colorScheme.mutedForeground),
           )
         : AppMonoText(displayText, size: 10);
 
@@ -415,11 +359,7 @@ class _ActivityLine extends StatelessWidget {
           SizedBox(width: 56, child: AppMonoText(entry.clockText, size: 10)),
           SizedBox(
             width: 104,
-            child: AppMonoText(
-              entry.title,
-              size: 10,
-              color: theme.colorScheme.foreground,
-            ),
+            child: AppMonoText(entry.title, size: 10, color: theme.colorScheme.foreground),
           ),
           Expanded(
             child: entry.purpose != null && rawArgs.isNotEmpty
@@ -430,9 +370,7 @@ class _ActivityLine extends StatelessWidget {
           AppMonoText(
             entry.pending ? '…' : entry.durationText,
             size: 10,
-            color: entry.pending
-                ? AppTones.warning
-                : AppTones.metricText(theme),
+            color: entry.pending ? AppTones.warning : AppTones.metricText(theme),
           ),
         ],
       ),

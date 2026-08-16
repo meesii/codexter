@@ -211,18 +211,11 @@ class AppSegmented extends StatelessWidget {
               onTap: () => onChanged(index),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: 5,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 5),
                 decoration: BoxDecoration(
                   color: active ? theme.colorScheme.card : Colors.transparent,
                   borderRadius: BorderRadius.circular(theme.radiusSm),
-                  border: Border.all(
-                    color: active
-                        ? theme.colorScheme.border
-                        : Colors.transparent,
-                  ),
+                  border: Border.all(color: active ? theme.colorScheme.border : Colors.transparent),
                 ),
                 child: Text(
                   labels[index],
@@ -264,9 +257,7 @@ class AppFilterField extends StatelessWidget {
         child: TextField(
           controller: controller,
           placeholder: Text(placeholder),
-          features: const [
-            InputFeature.leading(Icon(BootstrapIcons.search, size: 12)),
-          ],
+          features: const [InputFeature.leading(Icon(BootstrapIcons.search, size: 12))],
         ),
       ),
     );
@@ -279,12 +270,7 @@ class AppInfoRow extends StatelessWidget {
   final String value;
   final bool mono;
 
-  const AppInfoRow({
-    super.key,
-    required this.label,
-    required this.value,
-    this.mono = false,
-  });
+  const AppInfoRow({super.key, required this.label, required this.value, this.mono = false});
 
   @override
   Widget build(BuildContext context) {
@@ -294,10 +280,7 @@ class AppInfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 108,
-            child: Text(label, style: AppTones.muted(theme, size: 11)),
-          ),
+          SizedBox(width: 108, child: Text(label, style: AppTones.muted(theme, size: 11))),
           Expanded(
             child: mono
                 ? AppMonoText(value, size: 11, maxLines: 3)
