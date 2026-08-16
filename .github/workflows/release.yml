@@ -130,3 +130,20 @@ jobs:
               --title "Codexter $env:APP_VERSION" `
               --generate-notes
           }
+
+      - name: Remove broken v1.0.2 release
+        if: env.RELEASE_TAG == 'v1.0.3'
+        shell: pwsh
+        env:
+          SOURCE_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXTERNAL_RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          $env:GH_TOKEN = if ($env:EXTERNAL_RELEASE_TOKEN) { $env:EXTERNAL_RELEASE_TOKEN } else { $env:SOURCE_GITHUB_TOKEN }
+          $repo = $env:TARGET_RELEASE_REPOSITORY
+          gh release view v1.0.2 --repo $repo *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release delete v1.0.2 --cleanup-tag --yes --repo $repo
+            Write-Host "Removed broken v1.0.2 release and tag from $repo"
+          } else {
+            Write-Host "v1.0.2 release not found; nothing to remove"
+          }
