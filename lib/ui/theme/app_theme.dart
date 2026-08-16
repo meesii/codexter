@@ -29,11 +29,28 @@ class AppTheme {
   }
 
   static ThemeData get dark {
-    return ThemeData.dark(
-      colorScheme: ColorSchemes.darkNeutral,
-      radius: 0.6,
-      typography: _typography,
+    final scheme = ColorSchemes.darkNeutral.copyWith(
+      background: () => const Color(0xFF111216),
+      foreground: () => const Color(0xFFF2F3F5),
+      card: () => const Color(0xFF1A1C20),
+      cardForeground: () => const Color(0xFFF2F3F5),
+      popover: () => const Color(0xFF202228),
+      popoverForeground: () => const Color(0xFFF2F3F5),
+      primary: () => const Color(0xFF8B5CF6),
+      primaryForeground: () => const Color(0xFFF8F7FF),
+      secondary: () => const Color(0xFF22242A),
+      secondaryForeground: () => const Color(0xFFE8E9ED),
+      muted: () => const Color(0xFF202228),
+      mutedForeground: () => const Color(0xFFA0A3AD),
+      accent: () => const Color(0xFF272A31),
+      accentForeground: () => const Color(0xFFF2F3F5),
+      destructive: () => const Color(0xFFEF5350),
+      destructiveForeground: () => const Color(0xFFFFF5F5),
+      border: () => const Color(0xFF30333A),
+      input: () => const Color(0xFF2B2E35),
+      ring: () => const Color(0xFF9B7BFA),
     );
+    return ThemeData.dark(colorScheme: scheme, radius: 0.6, typography: _typography);
   }
 
   static Typography get _typography {
@@ -78,17 +95,17 @@ class AppSwitchTheme extends StatelessWidget {
 class AppTones {
   const AppTones._();
 
-  static const success = Color(0xFF16A34A);
-  static const warning = Color(0xFFD97706);
-  static const info = Color(0xFF2563EB);
+  static const success = Color(0xFF22C55E);
+  static const warning = Color(0xFFF59E0B);
+  static const info = Color(0xFF3B82F6);
 
   /// 交互强调色与状态色分离：绿色只表达成功/运行，蓝色表达选中与可交互。
   static Color interaction(ThemeData theme) {
-    return theme.colorScheme.brightness == Brightness.dark ? const Color(0xFF60A5FA) : info;
+    return theme.colorScheme.brightness == Brightness.dark ? const Color(0xFF9B7BFA) : info;
   }
 
   static Color interactionSurface(ThemeData theme) {
-    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.12 : 0.07;
+    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.16 : 0.07;
     return interaction(theme).withValues(alpha: alpha);
   }
 
@@ -101,34 +118,42 @@ class AppTones {
 
   static Color surfaceRaised(ThemeData theme) {
     return theme.colorScheme.brightness == Brightness.dark
-        ? const Color(0xFF141414)
+        ? const Color(0xFF202228)
         : const Color(0xFFFCFCFC);
   }
 
   static Color surfaceSunken(ThemeData theme) {
     return theme.colorScheme.brightness == Brightness.dark
-        ? const Color(0xFF0F0F0F)
+        ? const Color(0xFF15161A)
         : const Color(0xFFF7F7F8);
   }
 
+  static Color surfaceHover(ThemeData theme) {
+    return theme.colorScheme.brightness == Brightness.dark
+        ? const Color(0xFF272A31)
+        : const Color(0xFFF3F4F6);
+  }
+
   static Color borderSubtle(ThemeData theme) {
-    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.68 : 0.44;
-    return theme.colorScheme.border.withValues(alpha: alpha);
+    if (theme.colorScheme.brightness == Brightness.dark) {
+      return theme.colorScheme.border.withValues(alpha: 0.95);
+    }
+    return theme.colorScheme.border.withValues(alpha: 0.44);
   }
 
   static Color borderFaint(ThemeData theme) {
-    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.52 : 0.30;
+    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.68 : 0.30;
     return theme.colorScheme.border.withValues(alpha: alpha);
   }
 
   static Color logCardBorder(ThemeData theme) {
-    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.60 : 0.38;
+    final alpha = theme.colorScheme.brightness == Brightness.dark ? 0.82 : 0.38;
     return theme.colorScheme.border.withValues(alpha: alpha);
   }
 
   static Color serviceCardSurface(ThemeData theme) {
     return theme.colorScheme.brightness == Brightness.dark
-        ? const Color(0xFF121212)
+        ? const Color(0xFF1A1C20)
         : const Color(0xFFFBFBFC);
   }
 

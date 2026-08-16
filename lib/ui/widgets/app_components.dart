@@ -139,18 +139,25 @@ class _AppCardState extends State<AppCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final highlight = widget.selected || (_hovered && widget.onTap != null);
+    final interactiveHover = _hovered && widget.onTap != null;
+    final surface = widget.selected
+        ? AppTones.surfaceRaised(theme)
+        : interactiveHover
+        ? AppTones.surfaceHover(theme)
+        : theme.colorScheme.card;
 
     final card = AnimatedContainer(
       duration: const Duration(milliseconds: 140),
       curve: Curves.easeOut,
       padding: widget.padding,
       decoration: BoxDecoration(
-        color: highlight ? AppTones.surfaceRaised(theme) : theme.colorScheme.card,
+        color: surface,
         borderRadius: BorderRadius.circular(theme.radiusLg),
         border: Border.all(
-          color: highlight
-              ? theme.colorScheme.ring.withValues(alpha: 0.35)
+          color: widget.selected
+              ? theme.colorScheme.ring.withValues(alpha: 0.52)
+              : interactiveHover
+              ? AppTones.borderSubtle(theme)
               : widget.borderColor ?? AppTones.borderSubtle(theme),
         ),
       ),

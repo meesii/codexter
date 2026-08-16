@@ -316,9 +316,9 @@ class _NavItemState extends State<_NavItem> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final background = widget.active
-        ? AppTones.interactionSurface(theme)
+        ? AppTones.surfaceHover(theme)
         : _hovered
-        ? theme.colorScheme.foreground.withValues(alpha: 0.07)
+        ? AppTones.surfaceRaised(theme)
         : Colors.transparent;
     final foreground = widget.active
         ? AppTones.interaction(theme)
@@ -502,10 +502,7 @@ class _StatusCardState extends State<_StatusCard> {
       AppStatusTone.idle => theme.colorScheme.mutedForeground,
     };
     final baseSurface = AppTones.serviceCardSurface(theme);
-    final surface = Color.alphaBlend(
-      theme.colorScheme.foreground.withValues(alpha: _hovered ? 0.025 : 0),
-      baseSurface,
-    );
+    final surface = _hovered ? AppTones.surfaceRaised(theme) : baseSurface;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),

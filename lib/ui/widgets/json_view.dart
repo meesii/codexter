@@ -251,13 +251,21 @@ class AppFilterField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SizedBox(
       width: width,
       child: AppInputFocusTheme(
-        child: TextField(
-          controller: controller,
-          placeholder: Text(placeholder),
-          features: const [InputFeature.leading(Icon(BootstrapIcons.search, size: 12))],
+        child: ComponentTheme<TextFieldTheme>(
+          data: TextFieldTheme(
+            filled: true,
+            border: Border.all(color: AppTones.borderSubtle(theme)),
+            borderRadius: BorderRadius.circular(theme.radiusMd),
+          ),
+          child: TextField(
+            controller: controller,
+            placeholder: Text(placeholder),
+            features: const [InputFeature.leading(Icon(BootstrapIcons.search, size: 12))],
+          ),
         ),
       ),
     );

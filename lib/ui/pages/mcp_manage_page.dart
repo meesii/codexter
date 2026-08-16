@@ -190,13 +190,20 @@ class _McpManagePageState extends State<McpManagePage> {
                     SizedBox(
                       width: 200,
                       child: AppInputFocusTheme(
-                        child: TextField(
-                          controller: searchController,
-                          placeholder: const Text('搜索工具…'),
-                          features: const [
-                            InputFeature.leading(Icon(BootstrapIcons.search, size: 12)),
-                          ],
-                          onChanged: (value) => setLocalState(() => query = value),
+                        child: ComponentTheme<TextFieldTheme>(
+                          data: TextFieldTheme(
+                            filled: true,
+                            border: Border.all(color: AppTones.borderSubtle(Theme.of(context))),
+                            borderRadius: BorderRadius.circular(Theme.of(context).radiusMd),
+                          ),
+                          child: TextField(
+                            controller: searchController,
+                            placeholder: const Text('搜索工具…'),
+                            features: const [
+                              InputFeature.leading(Icon(BootstrapIcons.search, size: 12)),
+                            ],
+                            onChanged: (value) => setLocalState(() => query = value),
+                          ),
                         ),
                       ),
                     ),

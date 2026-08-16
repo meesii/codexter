@@ -537,7 +537,8 @@ class AppField extends StatelessWidget {
     final field = AppInputFocusTheme(
       child: ComponentTheme<TextFieldTheme>(
         data: TextFieldTheme(
-          border: Border.all(color: theme.colorScheme.border.withValues(alpha: 0.68), width: 1),
+          filled: true,
+          border: Border.all(color: AppTones.borderSubtle(theme), width: 1),
           borderRadius: BorderRadius.circular(theme.radiusMd),
         ),
         child: TextField(
