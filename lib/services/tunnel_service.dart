@@ -84,7 +84,7 @@ class TunnelService extends ChangeNotifier {
       '--config',
       configPath,
       '--protocol',
-      'http2',
+      'auto',
       '--edge-ip-version',
       '4',
       'run',
@@ -213,7 +213,7 @@ class TunnelConfigYml {
     return [
       'tunnel: $tunnelId',
       "credentials-file: '$credentialsFile'",
-      'protocol: http2',
+      'protocol: auto',
       'edge-ip-version: 4',
       '',
       'ingress:',

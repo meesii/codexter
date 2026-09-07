@@ -1,0 +1,61 @@
+{
+    "manifest_version": 3,
+    "name": "Codexter",
+    "version": "0.1.5",
+    "description": "Codexter 的 ChatGPT 浏览器增强与长对话性能优化。",
+    "minimum_chrome_version": "116",
+    "permissions": [
+        "storage"
+    ],
+    "icons": {
+        "16": "icons/icon-16.png",
+        "32": "icons/icon-32.png",
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png"
+    },
+    "action": {
+        "default_title": "Codexter",
+        "default_popup": "settings-popup.html",
+        "default_icon": {
+            "16": "icons/icon-16.png",
+            "32": "icons/icon-32.png"
+        }
+    },
+    "host_permissions": [
+        "https://chatgpt.com/*",
+        "ws://127.0.0.1:17616/*"
+    ],
+    "background": {
+        "service_worker": "service-worker.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://chatgpt.com/*"
+            ],
+            "js": [
+                "page-core.js",
+                "page-virtualization.js",
+                "page-history.js",
+                "page-socket.js",
+                "page-composer.js",
+                "page-connectors.js",
+                "page-hook.js"
+            ],
+            "run_at": "document_start",
+            "world": "MAIN"
+        },
+        {
+            "matches": [
+                "https://chatgpt.com/*"
+            ],
+            "js": [
+                "content-core.js",
+                "content-panel.js",
+                "content.js"
+            ],
+            "run_at": "document_start",
+            "world": "ISOLATED"
+        }
+    ]
+}
