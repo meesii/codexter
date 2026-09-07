@@ -73,3 +73,6 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+
+# Unreleased browser extension
+/chrome_extension/
