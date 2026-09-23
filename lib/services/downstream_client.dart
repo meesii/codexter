@@ -200,12 +200,29 @@ class DownstreamClient {
     final command = entry.command;
     if (command == null || command.isEmpty) throw Exception('command 为空');
 
-    _child = await Process.start(
-      command,
-      entry.args,
-      workingDirectory: entry.cwd,
-      environment: NetworkProxy.processEnvironment(overrides: entry.env),
-    );
+    final environment = NetworkProxy.processEnvironment(overrides: entry.env);
+
+    try {
+      _child = await Process.start(
+        command,
+        entry.args,
+        workingDirectory: entry.cwd,
+        environment: environment,
+      );
+    } on ProcessException catch (error) {
+      // Windows 的 .cmd/.bat 以及通过 PATHEXT 暴露的命令不能总被
+      // CreateProcess 直接解析。仅在“找不到文件/命令”时通过 shell 重试，
+      // 保持可执行文件在正常情况下仍然直接启动。
+      if (!Platform.isWindows || error.errorCode != 2) rethrow;
+
+      _child = await Process.start(
+        command,
+        entry.args,
+        workingDirectory: entry.cwd,
+        environment: environment,
+        runInShell: true,
+      );
+    }
 
     _stdoutSub = _child!.stdout
         .transform(utf8.decoder)
