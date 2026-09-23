@@ -28,13 +28,14 @@ class WorkspaceAdapter extends TypeAdapter<Workspace> {
       selectedMcpNames: (fields[8] as List?)?.cast<String>(),
       agentsMode: fields[9] as String? ?? Workspace.agentsAuto,
       customAgents: fields[10] as String? ?? '',
+      openAiTunnelId: fields[11] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Workspace obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.uuid)
       ..writeByte(1)
@@ -56,7 +57,9 @@ class WorkspaceAdapter extends TypeAdapter<Workspace> {
       ..writeByte(9)
       ..write(obj.agentsMode)
       ..writeByte(10)
-      ..write(obj.customAgents);
+      ..write(obj.customAgents)
+      ..writeByte(11)
+      ..write(obj.openAiTunnelId);
   }
 
   @override

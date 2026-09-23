@@ -35,6 +35,7 @@ class DownstreamMcpEntry extends HiveObject {
   static const builtinComputerUseName = 'computer-use';
 
   bool get isCodexImport => source == 'codex_import';
+  bool get isCursorImport => source == 'cursor_import';
   bool get isBuiltin => source == 'builtin';
 
   Map<String, dynamic> get transport => jsonDecode(transportJson) as Map<String, dynamic>;

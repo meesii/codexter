@@ -41,6 +41,10 @@ class Workspace extends HiveObject {
   @HiveField(10)
   String customAgents;
 
+  /// OpenAI Secure MCP Tunnel 模式下，该工作区独立使用的 tunnel_id。
+  @HiveField(11)
+  String? openAiTunnelId;
+
   static const agentsAuto = 'auto';
   static const agentsCustom = 'custom';
   static const agentsDisabled = 'disabled';
@@ -57,6 +61,7 @@ class Workspace extends HiveObject {
     this.selectedMcpNames,
     this.agentsMode = agentsAuto,
     this.customAgents = '',
+    this.openAiTunnelId,
   });
 
   String get mcpPath => '/$uuid/mcp';
@@ -71,6 +76,8 @@ class Workspace extends HiveObject {
     List<String>? selectedMcpNames,
     String? agentsMode,
     String? customAgents,
+    String? openAiTunnelId,
+    bool clearOpenAiTunnelId = false,
     bool clearSelectedSkillNames = false,
     bool clearSelectedMcpNames = false,
   }) {
@@ -88,6 +95,7 @@ class Workspace extends HiveObject {
       selectedMcpNames: clearSelectedMcpNames ? null : (selectedMcpNames ?? this.selectedMcpNames),
       agentsMode: agentsMode ?? this.agentsMode,
       customAgents: customAgents ?? this.customAgents,
+      openAiTunnelId: clearOpenAiTunnelId ? null : (openAiTunnelId ?? this.openAiTunnelId),
     );
   }
 }

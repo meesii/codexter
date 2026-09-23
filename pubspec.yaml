@@ -29,6 +29,8 @@ dependencies:
   diff_match_patch: ^0.4.1
   re_highlight: ^0.0.3
   socks5_proxy: ^2.1.1
+  archive: ^4.0.9
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:

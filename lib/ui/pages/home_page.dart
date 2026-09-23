@@ -115,7 +115,12 @@ class HomePage extends StatelessWidget {
       title: 'Tunnel 日志',
       maxWidth: 720,
       maxHeight: 520,
-      content: ConsoleView(text: appState.tunnelService.logTail, maxHeight: 360),
+      content: ConsoleView(
+        text: appState.config.useOpenAiTunnel
+            ? appState.openAiTunnelService.logTail
+            : appState.tunnelService.logTail,
+        maxHeight: 360,
+      ),
     );
   }
 }

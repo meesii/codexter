@@ -34,13 +34,16 @@ class GlobalConfigAdapter extends TypeAdapter<GlobalConfig> {
       computerUseEnabled: fields[14] as bool? ?? false,
       proxyEnabled: fields[15] as bool? ?? false,
       proxyUrl: fields[16] as String? ?? '',
+      tunnelProvider: fields[17] as String? ?? GlobalConfig.tunnelCloudflare,
+      tunnelClientBin: fields[18] as String?,
+      openAiRuntimeApiKey: fields[19] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, GlobalConfig obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(20)
       ..writeByte(0)
       ..write(obj.domain)
       ..writeByte(1)
@@ -74,7 +77,13 @@ class GlobalConfigAdapter extends TypeAdapter<GlobalConfig> {
       ..writeByte(15)
       ..write(obj.proxyEnabled)
       ..writeByte(16)
-      ..write(obj.proxyUrl);
+      ..write(obj.proxyUrl)
+      ..writeByte(17)
+      ..write(obj.tunnelProvider)
+      ..writeByte(18)
+      ..write(obj.tunnelClientBin)
+      ..writeByte(19)
+      ..write(obj.openAiRuntimeApiKey);
   }
 
   @override

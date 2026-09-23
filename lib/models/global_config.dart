@@ -55,6 +55,18 @@ class GlobalConfig extends HiveObject {
   @HiveField(16, defaultValue: '')
   String proxyUrl;
 
+  @HiveField(17, defaultValue: tunnelCloudflare)
+  String tunnelProvider;
+
+  @HiveField(18)
+  String? tunnelClientBin;
+
+  @HiveField(19, defaultValue: '')
+  String openAiRuntimeApiKey;
+
+  static const tunnelCloudflare = 'cloudflare';
+  static const tunnelOpenAi = 'openai';
+
   GlobalConfig({
     this.domain = '',
     this.host = '127.0.0.1',
@@ -73,7 +85,13 @@ class GlobalConfig extends HiveObject {
     this.computerUseEnabled = false,
     this.proxyEnabled = false,
     this.proxyUrl = '',
+    this.tunnelProvider = tunnelCloudflare,
+    this.tunnelClientBin,
+    this.openAiRuntimeApiKey = '',
   });
+
+  bool get useOpenAiTunnel => tunnelProvider == tunnelOpenAi;
+  bool get tunnelEnabled => useCloudflared || useOpenAiTunnel;
 
   String get baseUrl {
     if (domain.isEmpty) return 'http://$host:$port';
@@ -109,6 +127,9 @@ class GlobalConfig extends HiveObject {
     bool? computerUseEnabled,
     bool? proxyEnabled,
     String? proxyUrl,
+    String? tunnelProvider,
+    String? tunnelClientBin,
+    String? openAiRuntimeApiKey,
   }) {
     return GlobalConfig(
       domain: domain ?? this.domain,
@@ -128,6 +149,9 @@ class GlobalConfig extends HiveObject {
       computerUseEnabled: computerUseEnabled ?? this.computerUseEnabled,
       proxyEnabled: proxyEnabled ?? this.proxyEnabled,
       proxyUrl: proxyUrl ?? this.proxyUrl,
+      tunnelProvider: tunnelProvider ?? this.tunnelProvider,
+      tunnelClientBin: tunnelClientBin ?? this.tunnelClientBin,
+      openAiRuntimeApiKey: openAiRuntimeApiKey ?? this.openAiRuntimeApiKey,
     );
   }
 }

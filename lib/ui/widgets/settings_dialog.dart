@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 
+import '../../models/global_config.dart';
 import '../../services/setup_service.dart';
 import '../../stores/app_state.dart';
 import '../theme/app_theme.dart';
@@ -102,7 +103,10 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
   late final TextEditingController _hostController;
   late final TextEditingController _portController;
   late final TextEditingController _tunnelNameController;
+  late final TextEditingController _openAiApiKeyController;
   late bool _useCloudflared;
+  late String _tunnelProvider;
+  bool _openAiKeySaved = false;
   late bool _proxyEnabled;
   late String _proxyUrl;
   late int _section;
@@ -120,7 +124,10 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
     _hostController = TextEditingController(text: config.host);
     _portController = TextEditingController(text: '${config.port}');
     _tunnelNameController = TextEditingController(text: config.tunnelName);
+    _openAiApiKeyController = TextEditingController();
     _useCloudflared = config.useCloudflared;
+    _tunnelProvider = config.tunnelProvider;
+    _openAiKeySaved = config.openAiRuntimeApiKey.trim().isNotEmpty;
     _proxyEnabled = config.proxyEnabled;
     _proxyUrl = config.proxyUrl;
     appState.addListener(_onAppStateChanged);
@@ -137,6 +144,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
     _hostController.dispose();
     _portController.dispose();
     _tunnelNameController.dispose();
+    _openAiApiKeyController.dispose();
     super.dispose();
   }
 
@@ -241,7 +249,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
     final description = switch (_section) {
       0 => '应用运行方式和界面外观。',
       1 => '控制 ChatGPT 完成一轮处理后的提醒方式。',
-      2 => '配置本地监听与 Cloudflare Tunnel。',
+      2 => '配置本地监听与公网隧道方案。',
       _ => '配置 Codexter 出站 HTTP / SOCKS5 代理。',
     };
 
@@ -425,12 +433,14 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AppField(
-                    label: '公网域名',
-                    controller: _domainController,
-                    placeholder: 'mcp.example.com',
-                  ),
-                  const Gap(AppSpacing.lg),
+                  if (_tunnelProvider != GlobalConfig.tunnelOpenAi) ...[
+                    AppField(
+                      label: '公网域名',
+                      controller: _domainController,
+                      placeholder: 'mcp.example.com',
+                    ),
+                    const Gap(AppSpacing.lg),
+                  ],
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -456,55 +466,122 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
               ),
             );
 
+            final openAi = _tunnelProvider == GlobalConfig.tunnelOpenAi;
             final tunnel = _NetworkSection(
-              title: 'Cloudflare Tunnel',
-              description: '应用启动时保持连接，为 ChatGPT 提供公网访问。',
-              trailing: Switch(
-                value: _useCloudflared,
-                onChanged: _saving ? null : (value) => setState(() => _useCloudflared = value),
-              ),
-              child: _useCloudflared
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        AppField(
-                          label: 'Tunnel 名称',
-                          controller: _tunnelNameController,
-                          placeholder: 'codex-mcp',
+              title: '公网 Tunnel',
+              description: openAi
+                  ? 'OpenAI Secure MCP Tunnel：每个工作区使用独立 tunnel_id。'
+                  : 'Cloudflare Tunnel：所有工作区共享公网域名，通过 UUID 路径区分。',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Button(
+                          style: openAi ? ButtonStyle.outline() : ButtonStyle.primary(),
+                          onPressed: _saving
+                              ? null
+                              : () => setState(() {
+                                  _tunnelProvider = GlobalConfig.tunnelCloudflare;
+                                  _useCloudflared = true;
+                                }),
+                          child: const Text('Cloudflare Tunnel'),
                         ),
-                        const Gap(AppSpacing.lg),
-                        _MetaRow(label: 'Tunnel ID', value: config.tunnelId ?? '未创建'),
-                        const Gap(AppSpacing.sm),
-                        _MetaRow(label: 'Cloudflared', value: config.cloudflaredBin ?? '使用内置下载路径'),
-                        const Gap(AppSpacing.lg),
-                        Wrap(
-                          spacing: AppSpacing.sm,
-                          runSpacing: AppSpacing.sm,
-                          children: [
-                            Button(
-                              style: ButtonStyle.outline(size: ButtonSize.small),
-                              onPressed: _saving ? null : _createTunnel,
-                              child: const AppButtonLabel(
-                                icon: BootstrapIcons.cloudPlus,
-                                label: '创建 / 修复',
-                              ),
-                            ),
-                            Button(
-                              style: ButtonStyle.outline(size: ButtonSize.small),
-                              onPressed: _saving ? null : _verifyRoute,
-                              child: const AppButtonLabel(
-                                icon: BootstrapIcons.activity,
-                                label: '验证连通性',
-                              ),
-                            ),
-                          ],
+                      ),
+                      const Gap(AppSpacing.md),
+                      Expanded(
+                        child: Button(
+                          style: openAi ? ButtonStyle.primary() : ButtonStyle.outline(),
+                          onPressed: _saving
+                              ? null
+                              : () => setState(() {
+                                  _tunnelProvider = GlobalConfig.tunnelOpenAi;
+                                  _useCloudflared = false;
+                                }),
+                          child: const Text('OpenAI Tunnel'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Gap(AppSpacing.xl),
+                  if (!openAi) ...[
+                    AppField(
+                      label: 'Tunnel 名称',
+                      controller: _tunnelNameController,
+                      placeholder: 'codex-mcp',
+                    ),
+                    const Gap(AppSpacing.lg),
+                    _MetaRow(label: 'Tunnel ID', value: config.tunnelId ?? '未创建'),
+                    const Gap(AppSpacing.sm),
+                    _MetaRow(label: 'Cloudflared', value: config.cloudflaredBin ?? '使用内置下载路径'),
+                    const Gap(AppSpacing.lg),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        Button(
+                          style: ButtonStyle.outline(size: ButtonSize.small),
+                          onPressed: _saving ? null : _createTunnel,
+                          child: const AppButtonLabel(
+                            icon: BootstrapIcons.cloudPlus,
+                            label: '创建 / 修复',
+                          ),
+                        ),
+                        Button(
+                          style: ButtonStyle.outline(size: ButtonSize.small),
+                          onPressed: _saving ? null : _verifyRoute,
+                          child: const AppButtonLabel(
+                            icon: BootstrapIcons.activity,
+                            label: '验证连通性',
+                          ),
                         ),
                       ],
-                    )
-                  : Text(
-                      '已关闭公网访问，MCP 仅监听本机地址。',
-                      style: AppTones.muted(Theme.of(context), size: 11.5),
                     ),
+                  ] else ...[
+                    _MetaRow(label: 'tunnel-client', value: config.tunnelClientBin ?? '未检测到'),
+                    const Gap(AppSpacing.lg),
+                    AppField(
+                      label: 'Runtime API Key',
+                      controller: _openAiApiKeyController,
+                      obscure: true,
+                      placeholder: _openAiKeySaved ? '已保存，留空则保持不变' : 'sk-...',
+                      hint: '需要 Tunnels Read + Use 权限；不会写入 tunnel-client 命令行。',
+                    ),
+                    const Gap(AppSpacing.lg),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        Button(
+                          style: ButtonStyle.outline(size: ButtonSize.small),
+                          onPressed: _saving
+                              ? null
+                              : () => _setupService.openUrl(
+                                  'https://platform.openai.com/settings/organization/api-keys',
+                                ),
+                          child: const Text('API Keys'),
+                        ),
+                        Button(
+                          style: ButtonStyle.outline(size: ButtonSize.small),
+                          onPressed: _saving
+                              ? null
+                              : () => _setupService.openUrl(
+                                  'https://platform.openai.com/settings/organization/tunnels',
+                                ),
+                          child: const Text('Tunnels 管理'),
+                        ),
+                        if (_openAiKeySaved)
+                          Button(
+                            style: ButtonStyle.outline(size: ButtonSize.small),
+                            onPressed: _saving ? null : _clearOpenAiRuntimeApiKey,
+                            child: const Text('清除已保存 Key'),
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
             );
 
             return Column(
@@ -515,7 +592,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
                 _HorizontalRule(),
                 const Gap(AppSpacing.xl),
                 tunnel,
-                if (_useCloudflared) ...[
+                if (_useCloudflared || _tunnelProvider == GlobalConfig.tunnelOpenAi) ...[
                   const Gap(AppSpacing.xl),
                   _HorizontalRule(),
                   const Gap(AppSpacing.xl),
@@ -533,9 +610,26 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _GroupHeading(title: '运行日志', description: 'Cloudflared 最近的输出。'),
+        _GroupHeading(
+          title: '运行日志',
+          description: _tunnelProvider == GlobalConfig.tunnelOpenAi
+              ? 'tunnel-client 最近的输出。'
+              : 'Cloudflared 最近的输出。',
+        ),
         const Gap(AppSpacing.md),
-        ConsoleView(text: appState.tunnelService.logTail, maxHeight: 135),
+        if (_tunnelProvider == GlobalConfig.tunnelOpenAi &&
+            !appState.workspaces.any((workspace) => workspace.enabled))
+          Text(
+            '暂无启用的工作区，tunnel-client 尚未启动。创建并启用工作区后，这里会显示运行日志。',
+            style: AppTones.muted(Theme.of(context), size: 11.5),
+          )
+        else
+          ConsoleView(
+            text: _tunnelProvider == GlobalConfig.tunnelOpenAi
+                ? appState.openAiTunnelService.logTail
+                : appState.tunnelService.logTail,
+            maxHeight: 135,
+          ),
       ],
     );
   }
@@ -558,24 +652,50 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
     setState(() => _saving = true);
     try {
       final tunnelName = _tunnelNameController.text.trim();
-      final domain = _setupService.normalizeDomain(_domainController.text);
+      final openAi = _tunnelProvider == GlobalConfig.tunnelOpenAi;
+      final domain = openAi ? '' : _setupService.normalizeDomain(_domainController.text);
+      String? tunnelClientBin;
+      if (openAi) {
+        tunnelClientBin = await _setupService.findTunnelClientBin(
+          configuredPath: appState.config.tunnelClientBin,
+        );
+        if (tunnelClientBin == null) throw Exception('未找到 tunnel-client');
+        final apiKey = _openAiApiKeyController.text.trim();
+        if (apiKey.isEmpty && appState.config.openAiRuntimeApiKey.trim().isEmpty) {
+          throw Exception('请填写 Runtime API Key');
+        }
+      }
+
       await appState.saveGlobalConfig(
         appState.config.copyWith(
           domain: domain,
           host: _hostController.text.trim().isEmpty ? '127.0.0.1' : _hostController.text.trim(),
           port: int.tryParse(_portController.text.trim()) ?? 18920,
-          useCloudflared: _useCloudflared,
+          useCloudflared: !openAi && _useCloudflared,
+          tunnelProvider: _tunnelProvider,
+          tunnelClientBin: tunnelClientBin ?? appState.config.tunnelClientBin,
+          openAiRuntimeApiKey: openAi
+              ? (_openAiApiKeyController.text.trim().isEmpty
+                    ? appState.config.openAiRuntimeApiKey
+                    : _openAiApiKeyController.text.trim())
+              : appState.config.openAiRuntimeApiKey,
           tunnelName: tunnelName.isEmpty ? 'codex-mcp' : tunnelName,
         ),
       );
 
       final tunnelId = appState.config.tunnelId;
-      if (_useCloudflared && domain.isNotEmpty && tunnelId != null && tunnelId.isNotEmpty) {
+      if (!openAi &&
+          _useCloudflared &&
+          domain.isNotEmpty &&
+          tunnelId != null &&
+          tunnelId.isNotEmpty) {
         final bin = await _setupService.findCloudflaredBin();
         if (bin == null) throw Exception('未找到 cloudflared');
         await _setupService.ensureDnsRoute(bin, tunnelId, domain, onLoginUrl: _updateLoginUrl);
       }
 
+      _openAiKeySaved = appState.config.openAiRuntimeApiKey.trim().isNotEmpty;
+      _openAiApiKeyController.clear();
       await appState.restartServices();
       if (!mounted) return;
       if (appState.lastError == null) {
@@ -585,6 +705,22 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
       }
     } catch (error) {
       if (mounted) AppToast.error(context, '保存失败：$error');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _clearOpenAiRuntimeApiKey() async {
+    setState(() => _saving = true);
+    try {
+      await appState.saveGlobalConfig(appState.config.copyWith(openAiRuntimeApiKey: ''));
+      _openAiApiKeyController.clear();
+      _openAiKeySaved = false;
+      if (appState.config.useOpenAiTunnel) await appState.restartServices();
+      if (!mounted) return;
+      AppToast.success(context, '已清除 Runtime API Key');
+    } catch (error) {
+      if (mounted) AppToast.error(context, '清除失败：$error');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -615,6 +751,7 @@ class _SettingsDialogBodyState extends State<_SettingsDialogBody> {
           tunnelName: tunnelName,
           cloudflaredBin: bin,
           useCloudflared: true,
+          tunnelProvider: GlobalConfig.tunnelCloudflare,
         ),
         tunnelId,
       );
@@ -847,14 +984,8 @@ class _NetworkSection extends StatelessWidget {
   final String title;
   final String description;
   final Widget child;
-  final Widget? trailing;
 
-  const _NetworkSection({
-    required this.title,
-    required this.description,
-    required this.child,
-    this.trailing,
-  });
+  const _NetworkSection({required this.title, required this.description, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -880,7 +1011,6 @@ class _NetworkSection extends StatelessWidget {
                 ],
               ),
             ),
-            if (trailing != null) ...[const Gap(AppSpacing.md), trailing!],
           ],
         ),
         const Gap(AppSpacing.xl),

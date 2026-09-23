@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../utils/app_paths.dart';
@@ -8,6 +9,14 @@ class ScannedSkill {
   final String rootPath;
 
   ScannedSkill({required this.name, required this.description, required this.rootPath});
+}
+
+class SkillImportResult {
+  final int scanned;
+  final int imported;
+  final int skipped;
+
+  const SkillImportResult({required this.scanned, required this.imported, required this.skipped});
 }
 
 class ScannedMcp {
@@ -26,15 +35,142 @@ class ScannedMcp {
   });
 }
 
-/// 从 Codex 目录导入 Skills / 下游 MCP，并保存手动创建的 Skill
+/// Skills 直接以 Codexter 数据目录下的 skills 文件夹为数据源；下游 MCP 仍从 Codex 配置扫描。
 class CapabilityManager {
-  Future<List<ScannedSkill>> scanCodexSkills() async {
-    final roots = [
-      p.join(_codexDir, 'skills'),
-      p.join(_homeDir, '.agents', 'skills'),
-      await AppPaths.skillsDir,
-    ];
+  final Future<String> Function()? _skillsDirectoryProvider;
+  final String? _homeDirectoryOverride;
 
+  CapabilityManager({this._skillsDirectoryProvider, String? homeDirectory})
+    : _homeDirectoryOverride = homeDirectory;
+
+  Future<String> get _skillsDirectory => _skillsDirectoryProvider?.call() ?? AppPaths.skillsDir;
+
+  Future<List<ScannedSkill>> scanLocalSkills() async {
+    return _scanSkillRoots([await _skillsDirectory]);
+  }
+
+  Future<List<ScannedSkill>> scanCodexSkills() async {
+    return _scanSkillRoots([p.join(_codexDir, 'skills'), p.join(_homeDir, '.agents', 'skills')]);
+  }
+
+  Future<List<ScannedSkill>> scanCursorSkills() async {
+    return _scanSkillRoots([p.join(_homeDir, '.cursor', 'skills')]);
+  }
+
+  Future<SkillImportResult> importCodexSkills() async {
+    return _importSkills(await scanCodexSkills());
+  }
+
+  Future<SkillImportResult> importCursorSkills() async {
+    return _importSkills(await scanCursorSkills());
+  }
+
+  Future<String> get localSkillsDirectory => _skillsDirectory;
+
+  Future<bool> openLocalSkillsDirectory() async {
+    final path = await _skillsDirectory;
+    try {
+      final result = Platform.isWindows
+          ? await Process.run('explorer.exe', [path])
+          : Platform.isMacOS
+          ? await Process.run('open', [path])
+          : await Process.run('xdg-open', [path]);
+      return result.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> deleteLocalSkill(String rootPath) async {
+    final skillsRoot = p.normalize(p.absolute(await _skillsDirectory));
+    final candidate = p.normalize(p.absolute(rootPath));
+    final expectedParent = p.dirname(candidate);
+    final sameParent = Platform.isWindows
+        ? expectedParent.toLowerCase() == skillsRoot.toLowerCase()
+        : expectedParent == skillsRoot;
+    if (!sameParent || p.equals(candidate, skillsRoot)) {
+      throw StateError('拒绝删除 Skills 目录之外的路径：$rootPath');
+    }
+
+    final type = await FileSystemEntity.type(candidate, followLinks: false);
+    if (type == FileSystemEntityType.notFound) return;
+    if (type != FileSystemEntityType.directory) {
+      throw StateError('Skill 路径不是目录：$rootPath');
+    }
+    await Directory(candidate).delete(recursive: true);
+  }
+
+  Future<List<ScannedMcp>> scanCodexMcps() async {
+    final configFile = File(p.join(_codexDir, 'config.toml'));
+    if (!await configFile.exists()) return const [];
+    return _parseMcpServers(await configFile.readAsString());
+  }
+
+  Future<List<ScannedMcp>> scanCursorMcps() async {
+    final configFile = File(p.join(_homeDir, '.cursor', 'mcp.json'));
+    if (!await configFile.exists()) return const [];
+
+    final decoded = jsonDecode(await configFile.readAsString());
+    if (decoded is! Map) return const [];
+    final servers = decoded['mcpServers'];
+    if (servers is! Map) return const [];
+
+    final results = <ScannedMcp>[];
+    for (final entry in servers.entries) {
+      final name = '${entry.key}'.trim();
+      final raw = entry.value;
+      if (name.isEmpty || raw is! Map) continue;
+
+      final command = '${raw['command'] ?? ''}'.trim();
+      final url = '${raw['url'] ?? ''}'.trim();
+      final enabled = raw['enabled'] != false && raw['disabled'] != true;
+      if (command.isNotEmpty) {
+        final args = raw['args'] is List
+            ? (raw['args'] as List).map((item) => '$item').toList()
+            : <String>[];
+        final env = raw['env'] is Map
+            ? Map<String, String>.fromEntries(
+                (raw['env'] as Map).entries.map((item) => MapEntry('${item.key}', '${item.value}')),
+              )
+            : <String, String>{};
+        final cwd = '${raw['cwd'] ?? ''}'.trim();
+        results.add(
+          ScannedMcp(
+            name: name,
+            enabled: enabled,
+            transport: {
+              'command': command,
+              if (args.isNotEmpty) 'args': args,
+              if (env.isNotEmpty) 'env': env,
+              if (cwd.isNotEmpty) 'cwd': cwd,
+            },
+          ),
+        );
+        continue;
+      }
+
+      if (url.isNotEmpty) {
+        final headers = raw['headers'] is Map
+            ? Map<String, String>.fromEntries(
+                (raw['headers'] as Map).entries.map(
+                  (item) => MapEntry('${item.key}', '${item.value}'),
+                ),
+              )
+            : <String, String>{};
+        results.add(
+          ScannedMcp(
+            name: name,
+            enabled: enabled,
+            transport: {'url': url, if (headers.isNotEmpty) 'headers': headers},
+          ),
+        );
+      }
+    }
+    results.sort((left, right) => left.name.compareTo(right.name));
+    return results;
+  }
+
+  Future<List<ScannedSkill>> _scanSkillRoots(List<String> roots) async {
     final found = <String, ScannedSkill>{};
     for (final root in roots) {
       final dir = Directory(root);
@@ -62,38 +198,58 @@ class CapabilityManager {
     return results;
   }
 
-  Future<String> writeManualSkill({
-    required String name,
-    required String description,
-    required String body,
-  }) async {
-    final root = p.join(await AppPaths.skillsDir, name);
-    await Directory(root).create(recursive: true);
+  Future<SkillImportResult> _importSkills(List<ScannedSkill> scanned) async {
+    final existingNames = (await scanLocalSkills()).map((item) => item.name).toSet();
+    final targetRoot = await _skillsDirectory;
+    await Directory(targetRoot).create(recursive: true);
+    var imported = 0;
+    var skipped = 0;
 
-    final content = [
-      '---',
-      'name: $name',
-      'description: $description',
-      '---',
-      '',
-      body.trim(),
-      '',
-    ].join('\n');
-    await File(p.join(root, 'SKILL.md')).writeAsString(content);
-    return root;
+    for (final skill in scanned) {
+      final source = Directory(skill.rootPath);
+      final folderName = p.basename(source.path);
+      final target = Directory(p.join(targetRoot, folderName));
+      if (existingNames.contains(skill.name) || await target.exists()) {
+        skipped++;
+        continue;
+      }
+
+      final staging = await Directory(targetRoot).createTemp('.skill-import-');
+      final staged = Directory(p.join(staging.path, folderName));
+      try {
+        await _copyDirectory(source, staged);
+        await staged.rename(target.path);
+        imported++;
+        existingNames.add(skill.name);
+      } catch (_) {
+        if (await target.exists()) {
+          try {
+            await target.delete(recursive: true);
+          } catch (_) {}
+        }
+        rethrow;
+      } finally {
+        if (await staging.exists()) {
+          try {
+            await staging.delete(recursive: true);
+          } catch (_) {}
+        }
+      }
+    }
+
+    return SkillImportResult(scanned: scanned.length, imported: imported, skipped: skipped);
   }
 
-  Future<String?> readSkillBody(String? rootPath) async {
-    if (rootPath == null || rootPath.isEmpty) return null;
-    final file = File(p.join(rootPath, 'SKILL.md'));
-    if (!await file.exists()) return null;
-    return file.readAsString();
-  }
-
-  Future<List<ScannedMcp>> scanCodexMcps() async {
-    final configFile = File(p.join(_codexDir, 'config.toml'));
-    if (!await configFile.exists()) return const [];
-    return _parseMcpServers(await configFile.readAsString());
+  Future<void> _copyDirectory(Directory source, Directory target) async {
+    await target.create(recursive: true);
+    await for (final entity in source.list(recursive: false, followLinks: false)) {
+      final destination = p.join(target.path, p.basename(entity.path));
+      if (entity is Directory) {
+        await _copyDirectory(entity, Directory(destination));
+      } else if (entity is File) {
+        await entity.copy(destination);
+      }
+    }
   }
 
   _SkillMeta _parseFrontMatter(String content, String fallbackName) {
@@ -184,7 +340,10 @@ class CapabilityManager {
   }
 
   String get _homeDir {
-    return Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '.';
+    return _homeDirectoryOverride ??
+        Platform.environment['HOME'] ??
+        Platform.environment['USERPROFILE'] ??
+        '.';
   }
 
   String get _codexDir => p.join(_homeDir, '.codex');

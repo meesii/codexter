@@ -161,7 +161,14 @@ class _CodexterAppState extends State<CodexterApp> with WindowListener, WidgetsB
               appState: widget.appState,
               child: ToastLayer(
                 child: widget.appState.isFirstRun
-                    ? FirstRunPage(appState: widget.appState)
+                    ? FirstRunPage(
+                        appState: widget.appState,
+                        onCompleted: () {
+                          if (mounted) {
+                            setState(() => _startupGateCompleted = true);
+                          }
+                        },
+                      )
                     : !_startupGateCompleted
                     ? StartupCheckPage(
                         appState: widget.appState,

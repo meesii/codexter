@@ -97,7 +97,12 @@ class _WorkspaceDetailPageState extends State<WorkspaceDetailPage> {
             AppToast.success(context, enable ? '工作区已启动' : '工作区已停止');
           },
           onEdit: () => CreateWorkspaceDialog.showEdit(context, appState, workspace),
-          onConnect: () => McpConnectionDialog.show(context, appState.workspaceUrl(workspace.uuid)),
+          onConnect: () => McpConnectionDialog.show(
+            context,
+            appState.workspaceUrl(workspace.uuid),
+            useTunnel: appState.config.useOpenAiTunnel,
+            tunnelId: workspace.openAiTunnelId,
+          ),
         ),
       ],
       child: WorkspaceDiffLayout(

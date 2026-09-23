@@ -44,6 +44,21 @@ class AppPaths {
     return p.join(await configDir, 'cloudflared.yml');
   }
 
+  static Future<String> get tunnelClientPath async {
+    final ext = Platform.isWindows ? '.exe' : '';
+    return p.join(await binDir, 'tunnel-client$ext');
+  }
+
+  static Future<String> get openAiTunnelDir async {
+    final dir = p.join(await configDir, 'openai-tunnel');
+    await Directory(dir).create(recursive: true);
+    return dir;
+  }
+
+  static Future<String> openAiHealthUrlPath(String workspaceUuid) async {
+    return p.join(await openAiTunnelDir, '$workspaceUuid.health-url');
+  }
+
   /// 当前应用环境独立的 Cloudflare 凭据目录。
   /// Debug 与 Release 会分别落在 codexter-dev / codexter 下，互不覆盖。
   static Future<String> get cloudflareDir async {

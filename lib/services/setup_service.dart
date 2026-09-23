@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 import '../models/global_config.dart';
 import '../platform/desktop_platform.dart';
@@ -13,6 +14,7 @@ import 'network_proxy.dart';
 import 'tunnel_service.dart';
 
 const cloudflaredVersion = '2026.7.2';
+const tunnelClientVersion = 'v0.0.14';
 
 class CloudflareLoginResult {
   final bool success;
@@ -46,6 +48,25 @@ class TunnelNameConflictException implements Exception {
   String toString() => 'Tunnel「$name」已存在';
 }
 
+class OpenAiTunnelValidationResult {
+  final String tunnelId;
+  final String? name;
+
+  const OpenAiTunnelValidationResult({required this.tunnelId, this.name});
+}
+
+enum OpenAiTunnelValidationIssue { network, unauthorized, forbidden, notFound, server, other }
+
+class OpenAiTunnelValidationException implements Exception {
+  final OpenAiTunnelValidationIssue issue;
+  final String message;
+
+  const OpenAiTunnelValidationException(this.issue, this.message);
+
+  @override
+  String toString() => message;
+}
+
 class DownloadProgress {
   final int received;
   final int total;
@@ -62,6 +83,7 @@ class SetupService {
   );
 
   Future<String> get cloudflaredPath => AppPaths.cloudflaredPath;
+  Future<String> get tunnelClientPath => AppPaths.tunnelClientPath;
 
   String normalizeDomain(String domain) {
     final text = domain.trim();
@@ -106,6 +128,319 @@ class SetupService {
       if (await file.exists()) return p.normalize(file.absolute.path);
     }
     return null;
+  }
+
+  Future<String?> findTunnelClientBin({String? configuredPath}) async {
+    final executableName = Platform.isWindows ? 'tunnel-client.exe' : 'tunnel-client';
+    final pathDirectories = (Platform.environment['PATH'] ?? '').split(
+      Platform.isWindows ? ';' : ':',
+    );
+    final candidates = <String>[
+      if (configuredPath != null && configuredPath.isNotEmpty) configuredPath,
+      await tunnelClientPath,
+      if (!Platform.isWindows) ...[
+        '/usr/local/bin/tunnel-client',
+        '/opt/homebrew/bin/tunnel-client',
+      ],
+      for (final directory in pathDirectories)
+        if (directory.isNotEmpty)
+          p.join(
+            Platform.isWindows ? directory.replaceAll(RegExp(r'^"|"$'), '') : directory,
+            executableName,
+          ),
+    ];
+
+    for (final candidate in candidates.toSet()) {
+      final file = File(candidate);
+      if (await file.exists()) return p.normalize(file.absolute.path);
+    }
+    return null;
+  }
+
+  Future<void> downloadTunnelClient({void Function(DownloadProgress)? onProgress}) async {
+    final targetPath = await tunnelClientPath;
+    final target = File(targetPath);
+    final staging = await Directory(await AppPaths.binDir).createTemp('.tunnel-client-');
+    final archiveFile = File(p.join(staging.path, 'tunnel-client.zip'));
+    final stagedBinary = File(
+      p.join(staging.path, Platform.isWindows ? 'tunnel-client.exe' : 'tunnel-client'),
+    );
+    final backup = File('$targetPath.codexter-backup');
+    final client = NetworkProxy.createHttpClient()..connectionTimeout = const Duration(seconds: 30);
+
+    try {
+      final request = await client.getUrl(Uri.parse(tunnelClientDownloadUrl));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        throw Exception('下载 tunnel-client 失败 (HTTP ${response.statusCode})');
+      }
+
+      final total = response.contentLength;
+      var received = 0;
+      final sink = archiveFile.openWrite();
+      await for (final chunk in response) {
+        sink.add(chunk);
+        received += chunk.length;
+        onProgress?.call(DownloadProgress(received, total));
+      }
+      await sink.close();
+
+      final archive = ZipDecoder().decodeBytes(await archiveFile.readAsBytes());
+      final executableName = Platform.isWindows ? 'tunnel-client.exe' : 'tunnel-client';
+      ArchiveFile? executable;
+      for (final entry in archive.files) {
+        final name = p.basename(entry.name);
+        if (entry.isFile && name == executableName) {
+          executable = entry;
+          break;
+        }
+      }
+      if (executable == null) throw Exception('官方压缩包中未找到 $executableName');
+
+      await stagedBinary.writeAsBytes(executable.content as List<int>, flush: true);
+      if (!Platform.isWindows) {
+        final chmod = await Process.run('chmod', ['+x', stagedBinary.path]);
+        if (chmod.exitCode != 0) throw Exception('设置 tunnel-client 执行权限失败');
+      }
+
+      final probe = await Process.run(stagedBinary.path, ['--version']);
+      if (probe.exitCode != 0) throw Exception('下载的 tunnel-client 无法运行');
+
+      await target.parent.create(recursive: true);
+      if (await backup.exists()) await backup.delete();
+      if (await target.exists()) await target.rename(backup.path);
+      try {
+        await stagedBinary.rename(target.path);
+        if (await backup.exists()) await backup.delete();
+      } catch (_) {
+        if (await target.exists()) {
+          try {
+            await target.delete();
+          } catch (_) {}
+        }
+        if (await backup.exists()) await backup.rename(target.path);
+        rethrow;
+      }
+    } finally {
+      client.close();
+      if (await backup.exists() && !await target.exists()) {
+        try {
+          await backup.rename(target.path);
+        } catch (_) {}
+      }
+      try {
+        await staging.delete(recursive: true);
+      } catch (_) {}
+    }
+  }
+
+  static bool isValidOpenAiTunnelId(String value) =>
+      RegExp(r'^tunnel_[0-9a-fA-F]{32}$').hasMatch(value.trim());
+
+  Future<OpenAiTunnelValidationResult> validateOpenAiTunnelRuntimeKey({
+    required String apiKey,
+    required String tunnelId,
+  }) async {
+    final key = apiKey.trim();
+    final id = tunnelId.trim();
+    if (key.isEmpty) throw const FormatException('Runtime API Key 不能为空');
+    if (!isValidOpenAiTunnelId(id)) {
+      throw const FormatException('Tunnel ID 格式无效');
+    }
+
+    final client = NetworkProxy.createHttpClient()..connectionTimeout = const Duration(seconds: 10);
+    try {
+      final request = await client.getUrl(Uri.https('api.openai.com', '/v1/tunnels/$id'));
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $key');
+      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      final response = await request.close().timeout(const Duration(seconds: 15));
+      final body = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(body);
+        final data = decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
+        return OpenAiTunnelValidationResult(
+          tunnelId: '${data['id'] ?? id}',
+          name: data['name'] is String ? data['name'] as String : null,
+        );
+      }
+
+      throw _openAiTunnelValidationException(response.statusCode, body);
+    } on TimeoutException catch (error) {
+      throw OpenAiTunnelValidationException(
+        OpenAiTunnelValidationIssue.network,
+        '连接 OpenAI API 超时：$error',
+      );
+    } on SocketException catch (error) {
+      throw OpenAiTunnelValidationException(
+        OpenAiTunnelValidationIssue.network,
+        '无法连接 OpenAI API：${error.message}',
+      );
+    } on HandshakeException catch (error) {
+      throw OpenAiTunnelValidationException(
+        OpenAiTunnelValidationIssue.network,
+        '连接 OpenAI API 时 TLS 握手失败：$error',
+      );
+    } on HttpException catch (error) {
+      throw OpenAiTunnelValidationException(
+        OpenAiTunnelValidationIssue.network,
+        '连接 OpenAI API 失败：${error.message}',
+      );
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  Future<void> testOpenAiTunnelClientConnection({
+    required String bin,
+    required String apiKey,
+    required String tunnelId,
+    int timeoutSec = 20,
+  }) async {
+    final key = apiKey.trim();
+    final id = tunnelId.trim();
+    if (key.isEmpty) throw const FormatException('Runtime API Key 不能为空');
+    if (!isValidOpenAiTunnelId(id)) {
+      throw const FormatException('Tunnel ID 格式无效');
+    }
+
+    final healthFile = File(await AppPaths.openAiHealthUrlPath('setup-test'));
+    if (await healthFile.exists()) await healthFile.delete();
+
+    final output = StringBuffer();
+    Process? process;
+    int? exitCode;
+    try {
+      process = await Process.start(bin, [
+        'run',
+        '--embedded-mcp-stub',
+        '--control-plane.tunnel-id',
+        id,
+        '--health.listen-addr',
+        '127.0.0.1:0',
+        '--health.url-file',
+        healthFile.path,
+        '--log.level',
+        'info',
+        '--log.format',
+        'struct-text',
+      ], environment: NetworkProxy.processEnvironment(overrides: {'CONTROL_PLANE_API_KEY': key}));
+
+      void collect(Stream<List<int>> stream) {
+        stream.listen((data) {
+          final text = TextDecode.bytes(data);
+          output.write(text);
+        });
+      }
+
+      collect(process.stdout);
+      collect(process.stderr);
+      unawaited(process.exitCode.then((code) => exitCode = code));
+
+      final deadline = DateTime.now().add(Duration(seconds: timeoutSec));
+      while (DateTime.now().isBefore(deadline)) {
+        if (exitCode != null) {
+          throw Exception(_tunnelClientTestError(output.toString(), exitCode!));
+        }
+        if (await _isTunnelClientReady(healthFile)) return;
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+      throw TimeoutException('tunnel-client 在 ${timeoutSec}s 内未连接到 OpenAI');
+    } finally {
+      if (process != null && exitCode == null) {
+        process.kill(ProcessSignal.sigterm);
+        try {
+          await process.exitCode.timeout(
+            const Duration(seconds: 3),
+            onTimeout: () {
+              process!.kill(ProcessSignal.sigkill);
+              return -1;
+            },
+          );
+        } catch (_) {}
+      }
+      if (await healthFile.exists()) {
+        try {
+          await healthFile.delete();
+        } catch (_) {}
+      }
+    }
+  }
+
+  Future<bool> _isTunnelClientReady(File healthFile) async {
+    if (!await healthFile.exists()) return false;
+    final base = (await healthFile.readAsString()).trim();
+    if (base.isEmpty) return false;
+    final uri = Uri.tryParse('$base/readyz');
+    if (uri == null) return false;
+
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+    try {
+      final request = await client.getUrl(uri);
+      final response = await request.close().timeout(const Duration(seconds: 2));
+      await response.drain<void>();
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  String _tunnelClientTestError(String raw, int exitCode) {
+    final text = raw.trim();
+    final lower = text.toLowerCase();
+    if (lower.contains('unauthorized') || lower.contains('401')) {
+      return 'tunnel-client 认证失败，请检查 Runtime API Key 和 Tunnels Use 权限';
+    }
+    if (lower.contains('forbidden') || lower.contains('403')) {
+      return 'Runtime API Key 缺少当前 Tunnel 的 Use 权限';
+    }
+    if (lower.contains('not found') || lower.contains('404')) {
+      return '未找到该 Tunnel，或当前 Key 无权使用它';
+    }
+    final lines = text.split(RegExp(r'\r?\n')).where((line) => line.trim().isNotEmpty).toList();
+    final tail = lines.length <= 4 ? lines : lines.sublist(lines.length - 4);
+    return tail.isEmpty
+        ? 'tunnel-client 启动失败（exit $exitCode）'
+        : 'tunnel-client 启动失败（exit $exitCode）：${tail.join(' / ')}';
+  }
+
+  OpenAiTunnelValidationException _openAiTunnelValidationException(int statusCode, String body) {
+    String? apiMessage;
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final error = decoded['error'];
+        if (error is Map && error['message'] is String) {
+          apiMessage = error['message'] as String;
+        }
+      }
+    } catch (_) {}
+
+    final suffix = apiMessage == null || apiMessage.trim().isEmpty ? '' : '：${apiMessage.trim()}';
+    return switch (statusCode) {
+      401 => OpenAiTunnelValidationException(
+        OpenAiTunnelValidationIssue.unauthorized,
+        'Runtime API Key 无效或已失效$suffix',
+      ),
+      403 => OpenAiTunnelValidationException(
+        OpenAiTunnelValidationIssue.forbidden,
+        'Runtime API Key 缺少当前 Tunnel 的 Read 权限$suffix',
+      ),
+      404 => OpenAiTunnelValidationException(
+        OpenAiTunnelValidationIssue.notFound,
+        '未找到该 Tunnel，或当前 Key 无权查看它$suffix',
+      ),
+      >= 500 => OpenAiTunnelValidationException(
+        OpenAiTunnelValidationIssue.server,
+        'OpenAI API 暂时不可用（HTTP $statusCode）$suffix',
+      ),
+      _ => OpenAiTunnelValidationException(
+        OpenAiTunnelValidationIssue.other,
+        'OpenAI Tunnel 验证失败（HTTP $statusCode）$suffix',
+      ),
+    };
   }
 
   Future<String> probeVersion(String bin) async {
@@ -611,6 +946,7 @@ class SetupService {
   }
 
   static const githubReleasesUrl = 'https://github.com/cloudflare/cloudflared/releases/latest';
+  static const tunnelClientReleasesUrl = 'https://github.com/openai/tunnel-client/releases/latest';
 
   String get githubAssetName {
     final platformAsset = desktopPlatform.cloudflaredAssetName;
@@ -621,6 +957,24 @@ class SetupService {
   }
 
   String get managedBinName => Platform.isWindows ? 'cloudflared.exe' : 'cloudflared';
+
+  String get tunnelClientAssetName {
+    final platform = Platform.isWindows
+        ? 'windows'
+        : Platform.isMacOS
+        ? 'darwin'
+        : 'linux';
+    final arch = _isArm64 ? 'arm64' : 'amd64';
+    return 'tunnel-client-$tunnelClientVersion-$platform-$arch.zip';
+  }
+
+  String get tunnelClientManagedBinName =>
+      Platform.isWindows ? 'tunnel-client.exe' : 'tunnel-client';
+
+  String get tunnelClientDownloadUrl {
+    final base = 'https://github.com/openai/tunnel-client/releases/download/$tunnelClientVersion';
+    return '$base/$tunnelClientAssetName';
+  }
 
   String get _downloadUrl {
     final base = 'https://github.com/cloudflare/cloudflared/releases/download/$cloudflaredVersion';

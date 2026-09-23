@@ -12,10 +12,13 @@ import '../models/summary_notice.dart';
 import '../models/skill_entry.dart';
 import '../models/workspace.dart';
 import '../platform/desktop_platform.dart';
+import '../services/capability_manager.dart';
 import '../services/capability_runtime.dart';
 import '../services/doctor_service.dart';
 import '../services/notification_service.dart';
 import '../services/network_proxy.dart';
+import '../services/openai_tunnel_service.dart';
+import '../services/secret_store.dart';
 import '../services/setup_service.dart';
 import '../services/tunnel_error_classifier.dart';
 import '../services/tunnel_service.dart';
@@ -29,11 +32,14 @@ enum AppPage { home, skills, mcpManage, doctor }
 /// 全局状态协调层：配置、工作区、MCP 服务、Tunnel、能力集
 class AppState extends ChangeNotifier {
   final LogStore logStore = LogStore();
+  final CapabilityManager capabilityManager = CapabilityManager();
   final MultiWorkspaceServer mcpServer = MultiWorkspaceServer();
   final TunnelService tunnelService = TunnelService();
+  final OpenAiTunnelService openAiTunnelService = OpenAiTunnelService();
   final CapabilityRuntime capabilities = CapabilityRuntime();
   final DoctorService doctorService = DoctorService();
   final NotificationService notificationService = NotificationService();
+  final SecretStore secretStore = SecretStore();
   final SetupService setupService = SetupService();
   final AppUpdateService updateService = AppUpdateService();
 
@@ -51,6 +57,7 @@ class AppState extends ChangeNotifier {
   Future<void>? _shutdownTask;
   bool _servicesStopping = false;
   bool _shuttingDown = false;
+  bool _tunnelStopInProgress = false;
 
   AppPage _currentPage = AppPage.home;
   String? _selectedWorkspaceUuid;
@@ -119,17 +126,18 @@ class AppState extends ChangeNotifier {
     Hive.registerAdapter(DownstreamMcpEntryAdapter());
     await ConfigStore.init();
 
-    _config = ConfigStore.getGlobalConfig();
+    _config = await _hydrateSecureSecrets(ConfigStore.getGlobalConfig());
     NetworkProxy.configure(enabled: _config.proxyEnabled, url: _config.proxyUrl);
     await setupService.migrateLegacyCloudflareCredentials(_config.tunnelId);
     mcpServer.setWidgetDomain(_config.widgetOrigin);
     _workspaces = ConfigStore.getWorkspaces();
-    _skills = ConfigStore.getSkills();
+    _skills = await _loadSkillsFromDirectory();
     _mcps = _composeMcps(ConfigStore.getMcps());
 
     capabilities.syncSkills(_skills);
     capabilities.addListener(notifyListeners);
     logStore.addListener(notifyListeners);
+    openAiTunnelService.addListener(_handleOpenAiTunnelStateChanged);
     await notificationService.initialize(onNotificationTap: _handleNotificationTap);
     if (_config.notificationsEnabled) {
       unawaited(notificationService.requestPermissions(sound: _config.notificationSound));
@@ -268,6 +276,25 @@ class AppState extends ChangeNotifier {
     if (_config.darkMode == null) notifyListeners();
   }
 
+  Future<GlobalConfig> _hydrateSecureSecrets(GlobalConfig persisted) async {
+    final legacyKey = persisted.openAiRuntimeApiKey.trim();
+    try {
+      var secureKey = await secretStore.readOpenAiRuntimeApiKey();
+      if (secureKey.isEmpty && legacyKey.isNotEmpty) {
+        await secretStore.writeOpenAiRuntimeApiKey(legacyKey);
+        secureKey = legacyKey;
+      }
+      if (legacyKey.isNotEmpty) {
+        await ConfigStore.saveGlobalConfig(persisted.copyWith(openAiRuntimeApiKey: ''));
+      }
+      return persisted.copyWith(openAiRuntimeApiKey: secureKey);
+    } catch (error) {
+      // 安全存储暂不可用时保留旧配置，避免迁移失败导致用户现有 Key 丢失。
+      debugPrint('读取或迁移 Runtime API Key 失败: $error');
+      return persisted;
+    }
+  }
+
   Future<void> saveGlobalConfig(GlobalConfig config) async {
     final proxyChanged =
         config.proxyEnabled != _config.proxyEnabled || config.proxyUrl != _config.proxyUrl;
@@ -275,10 +302,30 @@ class AppState extends ChangeNotifier {
       proxyUrl: NetworkProxy.normalizeUrl(config.proxyUrl, enabled: config.proxyEnabled),
     );
     final computerUseChanged = config.computerUseEnabled != _config.computerUseEnabled;
+    final previousRuntimeKey = _config.openAiRuntimeApiKey.trim();
+    final nextRuntimeKey = config.openAiRuntimeApiKey.trim();
+    final runtimeKeyChanged = previousRuntimeKey != nextRuntimeKey;
+
+    if (runtimeKeyChanged) {
+      await secretStore.writeOpenAiRuntimeApiKey(nextRuntimeKey);
+    }
+    try {
+      // Runtime API Key 只保留在系统安全存储；Hive 中始终写空值以兼容旧字段结构。
+      await ConfigStore.saveGlobalConfig(config.copyWith(openAiRuntimeApiKey: ''));
+    } catch (_) {
+      if (runtimeKeyChanged) {
+        try {
+          await secretStore.writeOpenAiRuntimeApiKey(previousRuntimeKey);
+        } catch (rollbackError) {
+          debugPrint('Runtime API Key 安全存储回滚失败: $rollbackError');
+        }
+      }
+      rethrow;
+    }
+
     _config = config;
     NetworkProxy.configure(enabled: config.proxyEnabled, url: config.proxyUrl);
     mcpServer.setWidgetDomain(_config.widgetOrigin);
-    await ConfigStore.saveGlobalConfig(config);
     if (computerUseChanged) {
       _mcps = _composeMcps(_mcps.where((item) => !item.isBuiltin).toList());
       await capabilities.syncMcps(_mcps);
@@ -299,6 +346,7 @@ class AppState extends ChangeNotifier {
     List<String>? selectedMcpNames,
     String agentsMode = Workspace.agentsAuto,
     String customAgents = '',
+    String? openAiTunnelId,
   }) async {
     final now = DateTime.now();
     final workspace = Workspace(
@@ -312,21 +360,49 @@ class AppState extends ChangeNotifier {
       selectedMcpNames: selectedMcpNames,
       agentsMode: agentsMode,
       customAgents: customAgents,
+      openAiTunnelId: openAiTunnelId,
     );
+    _validateOpenAiWorkspaceTunnel(workspace);
+
+    final previousWorkspaces = _workspaces;
     _workspaces = [..._workspaces, workspace];
-    await ConfigStore.saveWorkspace(workspace);
-    _registerHandler(workspace);
-    notifyListeners();
-    return workspace;
+    try {
+      await ConfigStore.saveWorkspace(workspace);
+      _registerHandler(workspace);
+      notifyListeners();
+      await _restartOpenAiTunnelsIfRunning();
+      return workspace;
+    } catch (error) {
+      _workspaces = previousWorkspaces;
+      await ConfigStore.deleteWorkspace(workspace.uuid);
+      mcpServer.removeWorkspace(workspace.uuid);
+      notifyListeners();
+      await _restoreOpenAiTunnelsAfterWorkspaceRollback();
+      rethrow;
+    }
   }
 
   Future<void> updateWorkspace(Workspace workspace) async {
-    _workspaces = _workspaces
-        .map((item) => item.uuid == workspace.uuid ? workspace : item)
-        .toList();
-    await ConfigStore.saveWorkspace(workspace);
-    _registerHandler(workspace);
-    notifyListeners();
+    final index = _workspaces.indexWhere((item) => item.uuid == workspace.uuid);
+    if (index < 0) throw StateError('工作区不存在：${workspace.uuid}');
+    _validateOpenAiWorkspaceTunnel(workspace, excludeUuid: workspace.uuid);
+
+    final previous = _workspaces[index];
+    final previousWorkspaces = _workspaces;
+    _workspaces = List.of(_workspaces)..[index] = workspace;
+    try {
+      await ConfigStore.saveWorkspace(workspace);
+      _registerHandler(workspace);
+      notifyListeners();
+      await _restartOpenAiTunnelsIfRunning();
+    } catch (error) {
+      _workspaces = previousWorkspaces;
+      await ConfigStore.saveWorkspace(previous);
+      _registerHandler(previous);
+      notifyListeners();
+      await _restoreOpenAiTunnelsAfterWorkspaceRollback();
+      rethrow;
+    }
   }
 
   Future<void> deleteWorkspace(String uuid) async {
@@ -335,6 +411,62 @@ class AppState extends ChangeNotifier {
     mcpServer.removeWorkspace(uuid);
     logStore.clear(uuid);
     if (_selectedWorkspaceUuid == uuid) _selectedWorkspaceUuid = null;
+    notifyListeners();
+    await _restartOpenAiTunnelsIfRunning();
+  }
+
+  void _validateOpenAiWorkspaceTunnel(Workspace workspace, {String? excludeUuid}) {
+    if (!_config.useOpenAiTunnel) return;
+    final tunnelId = workspace.openAiTunnelId?.trim() ?? '';
+    if (workspace.enabled && tunnelId.isEmpty) {
+      throw const FormatException('启用的工作区必须配置 OpenAI Tunnel ID');
+    }
+    if (tunnelId.isNotEmpty && !SetupService.isValidOpenAiTunnelId(tunnelId)) {
+      throw const FormatException('OpenAI Tunnel ID 格式无效');
+    }
+    final duplicate = _workspaces.firstWhereOrNull(
+      (item) =>
+          item.uuid != excludeUuid &&
+          (item.openAiTunnelId ?? '').trim().toLowerCase() == tunnelId.toLowerCase() &&
+          tunnelId.isNotEmpty,
+    );
+    if (duplicate != null) {
+      throw StateError('该 Tunnel ID 已被工作区「${duplicate.name}」使用');
+    }
+  }
+
+  Future<void> _restartOpenAiTunnelsIfRunning() async {
+    if (!_config.useOpenAiTunnel || !_serverRunning || _servicesStopping || _shuttingDown) return;
+    await _stopTunnel();
+    _lastError = null;
+    await _startTunnel();
+    notifyListeners();
+  }
+
+  Future<void> _restoreOpenAiTunnelsAfterWorkspaceRollback() async {
+    if (!_config.useOpenAiTunnel || !_serverRunning || _servicesStopping || _shuttingDown) return;
+    try {
+      await _stopTunnel();
+      await _startTunnel();
+    } catch (restoreError) {
+      debugPrint('工作区保存回滚后恢复 OpenAI Tunnel 失败: $restoreError');
+    } finally {
+      notifyListeners();
+    }
+  }
+
+  void _handleOpenAiTunnelStateChanged() {
+    if (!_config.useOpenAiTunnel || _servicesStopping || _shuttingDown || _tunnelStopInProgress) {
+      return;
+    }
+    final running = openAiTunnelService.isRunning;
+    if (_tunnelRunning == running) return;
+    final wasRunning = _tunnelRunning;
+    _tunnelRunning = running;
+    if (wasRunning && !running) {
+      _lastError = 'OpenAI tunnel-client 连接已中断，请重新连接';
+      _refreshDoctorIfAvailable();
+    }
     notifyListeners();
   }
 
@@ -368,30 +500,50 @@ class AppState extends ChangeNotifier {
 
   String workspaceUrl(String uuid) => _config.workspaceUrl(uuid);
 
-  Future<void> saveSkill(SkillEntry skill) async {
-    final index = _skills.indexWhere((item) => item.name == skill.name);
-    if (index >= 0) {
-      _skills = List.of(_skills)..[index] = skill;
-    } else {
-      _skills = [..._skills, skill];
-    }
-    _skills.sort((left, right) => left.name.compareTo(right.name));
-    await ConfigStore.saveSkill(skill);
-    capabilities.syncSkills(_skills);
-    notifyListeners();
+  Future<List<SkillEntry>> _loadSkillsFromDirectory() async {
+    final persisted = {for (final skill in ConfigStore.getSkills()) skill.name: skill};
+    final scanned = await capabilityManager.scanLocalSkills();
+    final now = DateTime.now();
+    return scanned.map((item) {
+      final saved = persisted[item.name];
+      return SkillEntry(
+        name: item.name,
+        description: item.description,
+        source: 'local_directory',
+        rootPath: item.rootPath,
+        enabled: saved?.enabled ?? true,
+        createdAt: saved?.createdAt ?? now,
+      );
+    }).toList();
   }
 
-  Future<void> deleteSkill(String name) async {
-    _skills = _skills.where((item) => item.name != name).toList();
-    await ConfigStore.deleteSkill(name);
+  Future<void> refreshSkills() async {
+    _skills = await _loadSkillsFromDirectory();
     capabilities.syncSkills(_skills);
     notifyListeners();
   }
 
   Future<void> toggleSkill(String name, bool enabled) async {
+    final index = _skills.indexWhere((item) => item.name == name);
+    if (index < 0) return;
+    final updated = _skills[index].copyWith(enabled: enabled);
+    _skills = List.of(_skills)..[index] = updated;
+    await ConfigStore.saveSkill(updated);
+    capabilities.syncSkills(_skills);
+    notifyListeners();
+  }
+
+  Future<void> deleteSkill(String name) async {
     final skill = _skills.firstWhereOrNull((item) => item.name == name);
     if (skill == null) return;
-    await saveSkill(skill.copyWith(enabled: enabled));
+    final rootPath = skill.rootPath;
+    if (rootPath == null || rootPath.trim().isEmpty) {
+      throw StateError('Skill 缺少本地目录：$name');
+    }
+
+    await capabilityManager.deleteLocalSkill(rootPath);
+    await ConfigStore.deleteSkill(name);
+    await refreshSkills();
   }
 
   Future<void> saveMcp(DownstreamMcpEntry mcp) async {
@@ -482,7 +634,7 @@ class AppState extends ChangeNotifier {
 
     try {
       await _startServer();
-      if (!_servicesStopping && !_shuttingDown && _config.useCloudflared) {
+      if (!_servicesStopping && !_shuttingDown && _config.tunnelEnabled) {
         await _startTunnel(readyTimeoutSec: tunnelReadyTimeoutSec);
       }
     } catch (error) {
@@ -502,7 +654,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> restartTunnel() async {
-    if (_busy || _servicesStopping || _shuttingDown || !_config.useCloudflared) return;
+    if (_busy || _servicesStopping || _shuttingDown || !_config.tunnelEnabled) return;
     _busy = true;
     _lastError = null;
     notifyListeners();
@@ -661,7 +813,7 @@ class AppState extends ChangeNotifier {
       _serverRunning = false;
       _lastError = null;
       await _startServer();
-      if (_config.useCloudflared) await _startTunnel();
+      if (_config.tunnelEnabled) await _startTunnel();
     } catch (error) {
       _lastError = '$error';
       rethrow;
@@ -671,7 +823,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _restartTunnelStrict() async {
-    if (!_config.useCloudflared) throw Exception('Cloudflare Tunnel 未启用');
+    if (!_config.tunnelEnabled) throw Exception('Tunnel 未启用');
     try {
       await _stopTunnel();
       _lastError = null;
@@ -711,8 +863,10 @@ class AppState extends ChangeNotifier {
         config: _config,
         workspaces: _workspaces,
         serverRunning: _serverRunning,
-        tunnelRunning: _tunnelRunning,
-        tunnelError: _lastError ?? tunnelService.logTail,
+        tunnelRunning: tunnelRunning,
+        tunnelError:
+            _lastError ??
+            (_config.useOpenAiTunnel ? openAiTunnelService.logTail : tunnelService.logTail),
         onCheckStart: (title) {
           if (_shuttingDown) return;
           _doctorRunningTitles.add(title);
@@ -772,6 +926,28 @@ class AppState extends ChangeNotifier {
 
   Future<void> _startTunnel({int readyTimeoutSec = 45}) async {
     if (_tunnelRunning || _servicesStopping || _shuttingDown) return;
+
+    if (_config.useOpenAiTunnel) {
+      if (!_workspaces.any((workspace) => workspace.enabled)) return;
+      final bin = await setupService.findTunnelClientBin(configuredPath: _config.tunnelClientBin);
+      if (bin == null) throw Exception('未找到 tunnel-client');
+      final runtimeApiKey = _config.openAiRuntimeApiKey.trim();
+      if (runtimeApiKey.isEmpty) throw Exception('尚未配置 OpenAI Runtime API Key');
+      await openAiTunnelService.startAll(
+        bin: bin,
+        runtimeApiKey: runtimeApiKey,
+        localServiceUrl: _config.localServiceUrl,
+        workspaces: _workspaces,
+        readyTimeoutSec: readyTimeoutSec.clamp(5, 45),
+      );
+      if (_servicesStopping || _shuttingDown) {
+        await openAiTunnelService.stopAll();
+        return;
+      }
+      _tunnelRunning = true;
+      return;
+    }
+
     final bin = await _resolveCloudflaredBin();
     final tunnelId = _config.tunnelId;
     if (tunnelId == null || tunnelId.isEmpty) {
@@ -794,8 +970,13 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _stopTunnel() async {
-    await tunnelService.stop();
-    _tunnelRunning = false;
+    _tunnelStopInProgress = true;
+    try {
+      await Future.wait([tunnelService.stop(), openAiTunnelService.stopAll()]);
+      _tunnelRunning = false;
+    } finally {
+      _tunnelStopInProgress = false;
+    }
   }
 
   /// 每次启动都按当前端口重写 yml，避免端口变化后隧道指向旧端口
@@ -836,6 +1017,7 @@ class AppState extends ChangeNotifier {
   void dispose() {
     capabilities.removeListener(notifyListeners);
     logStore.removeListener(notifyListeners);
+    openAiTunnelService.removeListener(_handleOpenAiTunnelStateChanged);
     logStore.dispose();
     super.dispose();
   }

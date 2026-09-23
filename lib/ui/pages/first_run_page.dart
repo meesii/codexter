@@ -1,5 +1,6 @@
 import 'package:shadcn_flutter/shadcn_flutter.dart';
 import '../../app_info.dart';
+import '../../models/global_config.dart';
 import '../../services/setup_service.dart';
 import '../../stores/app_state.dart';
 import '../../utils/app_paths.dart';
@@ -15,21 +16,29 @@ import '../widgets/setup_wizard_steps.dart';
 /// 首次启动向导：cloudflared → 域名 → Tunnel → 完成
 class FirstRunPage extends StatefulWidget {
   final AppState appState;
+  final VoidCallback onCompleted;
 
-  const FirstRunPage({super.key, required this.appState});
+  const FirstRunPage({super.key, required this.appState, required this.onCompleted});
 
   @override
   State<FirstRunPage> createState() => _FirstRunPageState();
 }
 
 class _FirstRunPageState extends State<FirstRunPage> {
-  static const _stepLabels = ['Cloudflared', '域名', 'Tunnel', '完成'];
+  static const _cloudflareStepLabels = ['隧道方案', '域名', 'Tunnel', '完成'];
+  static const _openAiStepLabels = ['隧道方案', '连接配置', '连接测试', '完成'];
+
+  List<String> get _stepLabels =>
+      _tunnelProvider == GlobalConfig.tunnelOpenAi ? _openAiStepLabels : _cloudflareStepLabels;
 
   final _setupService = SetupService();
   final _domainController = TextEditingController();
   final _tunnelNameController = TextEditingController(text: 'codex-mcp');
+  final _openAiApiKeyController = TextEditingController();
+  final _openAiTunnelIdController = TextEditingController();
 
   late bool _proxyEnabled;
+  String _tunnelProvider = GlobalConfig.tunnelCloudflare;
   late String _proxyUrl;
   int _step = 0;
   bool _busy = false;
@@ -37,22 +46,30 @@ class _FirstRunPageState extends State<FirstRunPage> {
   String? _loginUrl;
   String? _cloudflaredBin;
   String? _cloudflaredVersion;
+  String? _tunnelClientBin;
+  String? _tunnelClientVersion;
   bool _probed = false;
+  bool _tunnelClientProbed = false;
   double _downloadFraction = 0;
   String _installPath = '';
+  String _tunnelClientInstallPath = '';
 
   @override
   void initState() {
     super.initState();
     _proxyEnabled = widget.appState.config.proxyEnabled;
     _proxyUrl = widget.appState.config.proxyUrl;
+    _tunnelProvider = widget.appState.config.tunnelProvider;
     _probeCloudflared();
+    _probeTunnelClient();
   }
 
   @override
   void dispose() {
     _domainController.dispose();
     _tunnelNameController.dispose();
+    _openAiApiKeyController.dispose();
+    _openAiTunnelIdController.dispose();
     super.dispose();
   }
 
@@ -62,39 +79,45 @@ class _FirstRunPageState extends State<FirstRunPage> {
     return Scaffold(
       child: Stack(
         children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620, maxHeight: 640),
-              child: Container(
-                margin: const EdgeInsets.all(AppSpacing.x2l),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.card,
-                  borderRadius: BorderRadius.circular(theme.radiusXl),
-                  border: Border.all(color: theme.colorScheme.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildHeader(theme),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(AppSpacing.x2l),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(_stepTitle, style: AppTones.title(theme, size: 14)),
-                            const Gap(AppSpacing.md),
-                            _buildStepBody(),
-                          ],
-                        ),
-                      ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = (constraints.maxWidth - AppSpacing.x2l * 2).clamp(0.0, 620.0);
+              final cardHeight = (constraints.maxHeight - AppSpacing.x2l * 2).clamp(0.0, 860.0);
+              return Center(
+                child: SizedBox(
+                  width: cardWidth,
+                  height: cardHeight,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.card,
+                      borderRadius: BorderRadius.circular(theme.radiusXl),
+                      border: Border.all(color: theme.colorScheme.border),
                     ),
-                    if (_step >= 2) _buildStepStatusSlot(theme),
-                    _buildFooter(theme),
-                  ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildHeader(theme),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(AppSpacing.x2l),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(_stepTitle, style: AppTones.title(theme, size: 14)),
+                                const Gap(AppSpacing.md),
+                                _buildStepBody(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (_step >= 2) _buildStepStatusSlot(theme),
+                        _buildFooter(theme),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
           Positioned(
             top: AppSpacing.lg,
@@ -113,12 +136,22 @@ class _FirstRunPageState extends State<FirstRunPage> {
     );
   }
 
-  String get _stepTitle => switch (_step) {
-    0 => '第 1 步：安装 cloudflared',
-    1 => '第 2 步：公网域名',
-    2 => '第 3 步：创建 Tunnel',
-    _ => '第 4 步：完成',
-  };
+  String get _stepTitle {
+    if (_tunnelProvider == GlobalConfig.tunnelOpenAi) {
+      return switch (_step) {
+        0 => '第 1 步：选择隧道方案',
+        1 => '第 2 步：连接配置',
+        2 => '第 3 步：连接测试',
+        _ => '第 4 步：完成',
+      };
+    }
+    return switch (_step) {
+      0 => '第 1 步：选择隧道方案',
+      1 => '第 2 步：公网域名',
+      2 => '第 3 步：创建 Tunnel',
+      _ => '第 4 步：完成',
+    };
+  }
 
   Widget _buildStepStatusSlot(ThemeData theme) {
     return SizedBox(
@@ -169,7 +202,12 @@ class _FirstRunPageState extends State<FirstRunPage> {
             ],
           ),
           const Gap(AppSpacing.xs),
-          Text('配置一次公网入口，之后每个工作区会自动获得独立的 UUID 地址。', style: AppTones.muted(theme)),
+          Text(
+            _tunnelProvider == GlobalConfig.tunnelOpenAi
+                ? '配置 OpenAI Tunnel，之后每个工作区绑定独立的 tunnel_id。'
+                : '配置一次公网入口，之后每个工作区会自动获得独立的 UUID 地址。',
+            style: AppTones.muted(theme),
+          ),
           const Gap(AppSpacing.xl),
           StepIndicator(labels: _stepLabels, activeIndex: _step),
         ],
@@ -204,30 +242,140 @@ class _FirstRunPageState extends State<FirstRunPage> {
   }
 
   Widget _buildStepBody() {
+    if (_tunnelProvider == GlobalConfig.tunnelOpenAi) {
+      return switch (_step) {
+        0 => _buildTunnelProviderStep(),
+        1 => _buildOpenAiCredentialsStep(),
+        2 => _buildOpenAiConnectionTestStep(),
+        _ => const DoneStep(domain: '', useOpenAiTunnel: true),
+      };
+    }
     return switch (_step) {
-      0 => CloudflaredStep(
-        probed: _probed,
-        binPath: _cloudflaredBin,
-        version: _cloudflaredVersion,
-        busy: _busy,
-        downloadFraction: _downloadFraction,
-        installPath: _installPath,
-        releaseAssetName: _setupService.githubAssetName,
-        managedBinName: _setupService.managedBinName,
-        onDownload: _downloadCloudflared,
-        onRecheck: _probeCloudflared,
-        onOpenRelease: () => _openUrl(SetupService.githubReleasesUrl),
-      ),
+      0 => _buildTunnelProviderStep(),
       1 => DomainStep(
         controller: _domainController,
         onOpenDashboard: () => _openUrl('https://dash.cloudflare.com/'),
       ),
       2 => TunnelStep(controller: _tunnelNameController),
-      _ => DoneStep(
-        domain: _setupService.normalizeDomain(_domainController.text),
-        onOpenDocs: () => _openUrl('https://learn.chatgpt.com/docs/mcp-server'),
-      ),
+      _ => DoneStep(domain: _setupService.normalizeDomain(_domainController.text)),
     };
+  }
+
+  Widget _buildTunnelProviderStep() {
+    final theme = Theme.of(context);
+    final openAi = _tunnelProvider == GlobalConfig.tunnelOpenAi;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('选择公网连接方式', style: AppTones.label(theme)),
+        const Gap(AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: Button(
+                style: openAi ? ButtonStyle.outline() : ButtonStyle.primary(),
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _tunnelProvider = GlobalConfig.tunnelCloudflare),
+                child: const Text('Cloudflare Tunnel'),
+              ),
+            ),
+            const Gap(AppSpacing.md),
+            Expanded(
+              child: Button(
+                style: openAi ? ButtonStyle.primary() : ButtonStyle.outline(),
+                onPressed: _busy
+                    ? null
+                    : () => setState(() => _tunnelProvider = GlobalConfig.tunnelOpenAi),
+                child: const Text('OpenAI Tunnel'),
+              ),
+            ),
+          ],
+        ),
+        const Gap(AppSpacing.xl),
+        if (!openAi)
+          CloudflaredStep(
+            probed: _probed,
+            binPath: _cloudflaredBin,
+            version: _cloudflaredVersion,
+            busy: _busy,
+            downloadFraction: _downloadFraction,
+            installPath: _installPath,
+            releaseAssetName: _setupService.githubAssetName,
+            managedBinName: _setupService.managedBinName,
+            onDownload: _downloadCloudflared,
+            onRecheck: _probeCloudflared,
+            onOpenRelease: () => _openUrl(SetupService.githubReleasesUrl),
+          )
+        else
+          TunnelClientStep(
+            probed: _tunnelClientProbed,
+            binPath: _tunnelClientBin,
+            version: _tunnelClientVersion,
+            busy: _busy,
+            downloadFraction: _downloadFraction,
+            installPath: _tunnelClientInstallPath,
+            releaseAssetName: _setupService.tunnelClientAssetName,
+            managedBinName: _setupService.tunnelClientManagedBinName,
+            onDownload: _downloadTunnelClient,
+            onRecheck: _probeTunnelClient,
+            onOpenRelease: () => _openUrl(SetupService.tunnelClientReleasesUrl),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildOpenAiCredentialsStep() {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppField(
+          label: 'Runtime API Key',
+          controller: _openAiApiKeyController,
+          obscure: true,
+          placeholder: 'sk-...',
+          hint: '需要目标 Tunnel 的 Tunnels Read + Use 权限。验证成功后才会保存到 Codexter 本地。',
+        ),
+        const Gap(AppSpacing.lg),
+        AppField(
+          label: 'OpenAI Tunnel ID',
+          controller: _openAiTunnelIdController,
+          placeholder: 'tunnel_0123456789abcdef0123456789abcdef',
+          hint: '这里只用于验证 Runtime API Key 和 Tunnel Read 权限；之后每个工作区分别配置自己的 tunnel_id。',
+        ),
+        const Gap(AppSpacing.lg),
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            Button(
+              style: ButtonStyle.outline(size: ButtonSize.small),
+              onPressed: () =>
+                  _openUrl('https://platform.openai.com/settings/organization/api-keys'),
+              child: const Text('获取 API Keys'),
+            ),
+            Button(
+              style: ButtonStyle.outline(size: ButtonSize.small),
+              onPressed: () =>
+                  _openUrl('https://platform.openai.com/settings/organization/tunnels'),
+              child: const Text('获取 Tunnel ID'),
+            ),
+          ],
+        ),
+        const Gap(AppSpacing.md),
+        Text('点击「下一步」时会自动验证 Runtime API Key 和 Tunnel Read 权限。', style: AppTones.muted(theme)),
+      ],
+    );
+  }
+
+  Widget _buildOpenAiConnectionTestStep() {
+    return const AppNotice(
+      tone: AppNoticeTone.info,
+      message: '测试 tunnel-client 到 OpenAI 的真实连接',
+      detail:
+          '点击「下一步」后会临时启动 tunnel-client，使用内置 MCP stub 验证当前 Runtime API Key 的 Tunnels Use 权限和控制面连接；验证结束后会立即关闭测试进程。',
+    );
   }
 
   Future<void> _showProxySettings() async {
@@ -260,6 +408,109 @@ class _FirstRunPageState extends State<FirstRunPage> {
       _cloudflaredVersion = version;
       _probed = true;
     });
+  }
+
+  Future<void> _probeTunnelClient() async {
+    final target = await AppPaths.tunnelClientPath;
+    final bin = await _setupService.findTunnelClientBin();
+    final version = bin == null ? null : await _setupService.probeVersion(bin);
+    if (!mounted) return;
+    setState(() {
+      _tunnelClientInstallPath = target;
+      _tunnelClientBin = bin;
+      _tunnelClientVersion = version;
+      _tunnelClientProbed = true;
+    });
+  }
+
+  Future<void> _downloadTunnelClient() async {
+    setState(() {
+      _busy = true;
+      _status = null;
+      _downloadFraction = 0;
+    });
+
+    try {
+      await _saveProxySettings();
+      await _setupService.downloadTunnelClient(
+        onProgress: (progress) {
+          if (!mounted) return;
+          setState(() => _downloadFraction = progress.fraction);
+        },
+      );
+      await _probeTunnelClient();
+    } catch (error) {
+      if (mounted) AppToast.error(context, '下载失败：$error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _downloadFraction = 0;
+        });
+      }
+    }
+  }
+
+  Future<bool> _validateOpenAiCredentials() async {
+    if (_busy) return false;
+    setState(() => _busy = true);
+    try {
+      final result = await _setupService.validateOpenAiTunnelRuntimeKey(
+        apiKey: _openAiApiKeyController.text,
+        tunnelId: _openAiTunnelIdController.text,
+      );
+      if (!mounted) return false;
+      AppToast.success(
+        context,
+        result.name == null || result.name!.isEmpty
+            ? 'Runtime API Key 验证通过'
+            : '验证通过：${result.name}',
+      );
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      final message = error is FormatException ? error.message : '$error';
+      AppToast.error(context, '验证失败：$message');
+      return false;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<bool> _testOpenAiTunnelConnection() async {
+    if (_busy) return false;
+    final bin = _tunnelClientBin;
+    if (bin == null) {
+      AppToast.warning(context, '请先安装 tunnel-client');
+      return false;
+    }
+
+    setState(() {
+      _busy = true;
+      _status = '正在连接 OpenAI Tunnel…';
+    });
+    try {
+      await _setupService.testOpenAiTunnelClientConnection(
+        bin: bin,
+        apiKey: _openAiApiKeyController.text,
+        tunnelId: _openAiTunnelIdController.text,
+      );
+      if (!mounted) return false;
+      AppToast.success(context, 'OpenAI Tunnel 连接测试通过');
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      final message = error is FormatException ? error.message : '$error';
+      AppToast.error(context, '连接测试失败：$message');
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _status = null;
+        });
+      }
+    }
   }
 
   Future<void> _downloadCloudflared() async {
@@ -302,19 +553,51 @@ class _FirstRunPageState extends State<FirstRunPage> {
         return;
       }
       if (!mounted) return;
-      if (_cloudflaredBin == null) {
+      if (_tunnelProvider == GlobalConfig.tunnelOpenAi) {
+        await _probeTunnelClient();
+        if (!mounted) return;
+        if (_tunnelClientBin == null) {
+          AppToast.warning(context, '请先安装或指定 tunnel-client');
+          return;
+        }
+      } else if (_cloudflaredBin == null) {
         AppToast.warning(context, '请先安装 cloudflared');
         return;
       }
     }
     if (!mounted) return;
-    if (_step == 1 && _setupService.normalizeDomain(_domainController.text).isEmpty) {
-      AppToast.warning(context, '请输入有效域名');
-      return;
+    if (_step == 1) {
+      if (_tunnelProvider == GlobalConfig.tunnelOpenAi) {
+        try {
+          final valid = await _validateOpenAiCredentials();
+          if (!valid) return;
+          await widget.appState.saveGlobalConfig(
+            widget.appState.config.copyWith(
+              tunnelProvider: GlobalConfig.tunnelOpenAi,
+              useCloudflared: false,
+              tunnelClientBin: _tunnelClientBin,
+              openAiRuntimeApiKey: _openAiApiKeyController.text.trim(),
+              domain: '',
+            ),
+          );
+        } catch (error) {
+          if (!mounted) return;
+          AppToast.error(context, '$error');
+          return;
+        }
+      } else if (_setupService.normalizeDomain(_domainController.text).isEmpty) {
+        AppToast.warning(context, '请输入有效域名');
+        return;
+      }
     }
     if (_step == 2) {
-      final succeeded = await _provisionTunnel();
-      if (!succeeded) return;
+      if (_tunnelProvider == GlobalConfig.tunnelOpenAi) {
+        final succeeded = await _testOpenAiTunnelConnection();
+        if (!succeeded) return;
+      } else {
+        final succeeded = await _provisionTunnel();
+        if (!succeeded) return;
+      }
     }
     if (mounted) setState(() => _step++);
   }
@@ -376,6 +659,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
           tunnelName: tunnelName,
           cloudflaredBin: bin,
           useCloudflared: true,
+          tunnelProvider: GlobalConfig.tunnelCloudflare,
         ),
         tunnelId,
       );
@@ -472,6 +756,8 @@ class _FirstRunPageState extends State<FirstRunPage> {
       _status = '正在启动服务…';
     });
     try {
+      await widget.appState.startServices();
+      if (mounted) widget.onCompleted();
       await widget.appState.completeFirstRun(widget.appState.config);
     } catch (error) {
       if (mounted) AppToast.error(context, '启动服务失败：$error');

@@ -21,7 +21,8 @@ class StartupCheckPage extends StatefulWidget {
 }
 
 class _StartupCheckPageState extends State<StartupCheckPage> {
-  static const _stepLabels = ['本地服务', '启动隧道', '连接边缘', '完成注册'];
+  static const _cloudflareSteps = ['本地服务', '启动隧道', '连接边缘', '完成注册'];
+  static const _openAiSteps = ['本地服务', '启动 tunnel-client', '连接 OpenAI', '完成注册'];
 
   bool _starting = true;
   String? _error;
@@ -35,6 +36,7 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
     super.initState();
     _appState.addListener(_refresh);
     _appState.tunnelService.addListener(_refresh);
+    _appState.openAiTunnelService.addListener(_refresh);
     WidgetsBinding.instance.addPostFrameCallback((_) => _start());
   }
 
@@ -42,6 +44,7 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
   void dispose() {
     _appState.removeListener(_refresh);
     _appState.tunnelService.removeListener(_refresh);
+    _appState.openAiTunnelService.removeListener(_refresh);
     super.dispose();
   }
 
@@ -51,27 +54,32 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
   }
 
   void _syncStage() {
-    final log = _appState.tunnelService.logTail;
+    final openAi = _appState.config.useOpenAiTunnel;
+    final log = openAi ? _appState.openAiTunnelService.logTail : _appState.tunnelService.logTail;
     var reached = 0;
     var retrying = false;
-    if (_appState.config.useCloudflared) {
+    if (_appState.config.tunnelEnabled) {
       for (final line in log.split(RegExp(r'\r?\n'))) {
-        if (line.contains('Starting tunnel') || line.contains('start tunnel')) {
-          reached = 1;
-        }
-        if (line.contains('curve preferences') ||
-            line.contains('Initial protocol') ||
-            line.contains('CONNECTIVITY PRE-CHECKS') ||
-            line.toLowerCase().contains('precheck')) {
-          reached = 2;
-        }
-        if (line.contains('Failed to dial') || line.contains('Retrying connection')) {
-          reached = 2;
-          retrying = true;
-        }
-        if (line.contains('Registered tunnel connection')) {
-          reached = 3;
-          retrying = false;
+        if (openAi) {
+          if (line.contains('start OpenAI tunnel')) reached = 1;
+          if (line.contains('control') || line.contains('connect')) reached = 2;
+          if (line.contains('OpenAI tunnel ready:')) reached = 3;
+        } else {
+          if (line.contains('Starting tunnel') || line.contains('start tunnel')) reached = 1;
+          if (line.contains('curve preferences') ||
+              line.contains('Initial protocol') ||
+              line.contains('CONNECTIVITY PRE-CHECKS') ||
+              line.toLowerCase().contains('precheck')) {
+            reached = 2;
+          }
+          if (line.contains('Failed to dial') || line.contains('Retrying connection')) {
+            reached = 2;
+            retrying = true;
+          }
+          if (line.contains('Registered tunnel connection')) {
+            reached = 3;
+            retrying = false;
+          }
         }
       }
     }
@@ -96,7 +104,11 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
     try {
       await _appState.startServices();
       if (!mounted) return;
-      if (_appState.config.useCloudflared && !_appState.tunnelRunning) {
+      final tunnelRequired =
+          _appState.config.useCloudflared ||
+          (_appState.config.useOpenAiTunnel &&
+              _appState.workspaces.any((workspace) => workspace.enabled));
+      if (tunnelRequired && !_appState.tunnelRunning) {
         setState(() {
           _starting = false;
           _error = _appState.lastErrorSummary ?? '隧道未在时限内就绪';
@@ -104,7 +116,7 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
         return;
       }
       setState(() {
-        _stageIndex = _appState.config.useCloudflared ? 3 : 0;
+        _stageIndex = tunnelRequired ? 3 : 0;
         _retrying = false;
       });
       await Future<void>.delayed(const Duration(milliseconds: 480));
@@ -123,7 +135,7 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
     final saved = await ProxySettingsDialog.show(
       context: context,
       appState: _appState,
-      description: '如果当前网络无法稳定连接 Cloudflare，可在这里配置 HTTP 或 SOCKS5 代理。',
+      description: '如果当前网络无法稳定连接 Tunnel 服务，可在这里配置 HTTP 或 SOCKS5 代理。',
     );
     if (mounted && saved) setState(() {});
   }
@@ -132,7 +144,12 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final failed = !_starting && _error != null;
-    final steps = _appState.config.useCloudflared ? _stepLabels : _stepLabels.take(1).toList();
+    final tunnelSteps = _appState.config.useOpenAiTunnel ? _openAiSteps : _cloudflareSteps;
+    final tunnelRequired =
+        _appState.config.useCloudflared ||
+        (_appState.config.useOpenAiTunnel &&
+            _appState.workspaces.any((workspace) => workspace.enabled));
+    final steps = tunnelRequired ? tunnelSteps : tunnelSteps.take(1).toList();
 
     return Scaffold(
       child: Container(
@@ -178,8 +195,8 @@ class _StartupCheckPageState extends State<StartupCheckPage> {
                     AppNotice(
                       tone: AppNoticeTone.danger,
                       message: '暂时没有连上 Tunnel',
-                      detail: '可以换网络或配置代理后重试，也可以先进入主页面。',
-                      detailMaxLines: 3,
+                      detail: _error ?? '可以换网络或配置代理后重试，也可以先进入主页面。',
+                      detailMaxLines: 4,
                     ),
                     const Gap(AppSpacing.lg),
                     Row(

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:collection/collection.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as p;
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -9,6 +10,7 @@ import 'app_components.dart';
 import 'app_dialog.dart';
 import 'app_toast.dart';
 import 'json_view.dart';
+import 'mcp_connection_dialog.dart';
 
 /// 工作区编辑对话框：基础设置、能力配置、Agents 指令。
 class CreateWorkspaceDialog extends StatefulWidget {
@@ -25,9 +27,9 @@ class CreateWorkspaceDialog extends StatefulWidget {
     return _show(context, appState, workspace: workspace);
   }
 
-  static Future<void> _show(BuildContext context, AppState appState, {Workspace? workspace}) {
+  static Future<void> _show(BuildContext context, AppState appState, {Workspace? workspace}) async {
     final editing = workspace != null;
-    return AppDialog.show<void>(
+    final created = await AppDialog.show<Workspace?>(
       context: context,
       title: editing ? '修改工作区' : '新建工作区',
       description: '配置工作区路径、可用能力和发送给 ChatGPT 的项目指令。',
@@ -47,6 +49,15 @@ class CreateWorkspaceDialog extends StatefulWidget {
         ),
       ],
     );
+
+    if (!editing && created != null && context.mounted) {
+      await McpConnectionDialog.show(
+        context,
+        appState.workspaceUrl(created.uuid),
+        useTunnel: appState.config.useOpenAiTunnel,
+        tunnelId: created.openAiTunnelId,
+      );
+    }
   }
 
   static final GlobalKey<_CreateWorkspaceDialogState> _formKey =
@@ -61,6 +72,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
   late final TextEditingController _pathController;
   late final TextEditingController _agentsController;
   late final TextEditingController _agentsPreviewController;
+  late final TextEditingController _openAiTunnelIdController;
   late bool _inheritSkills;
   late bool _inheritMcps;
   late Set<String> _selectedSkills;
@@ -68,6 +80,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
   late String _agentsMode;
   int _tabIndex = 0;
   String? _error;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -77,6 +90,7 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
     _pathController = TextEditingController(text: workspace?.projectRoot ?? '');
     _agentsController = TextEditingController(text: workspace?.customAgents ?? '');
     _agentsPreviewController = TextEditingController();
+    _openAiTunnelIdController = TextEditingController(text: workspace?.openAiTunnelId ?? '');
     _pathController.addListener(_refreshAgentsPreview);
     _refreshAgentsPreview();
 
@@ -103,10 +117,12 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
     _pathController.dispose();
     _agentsController.dispose();
     _agentsPreviewController.dispose();
+    _openAiTunnelIdController.dispose();
     super.dispose();
   }
 
   Future<void> submit(BuildContext dialogContext) async {
+    if (_submitting) return;
     final name = _nameController.text.trim();
     final path = _pathController.text.trim();
 
@@ -124,6 +140,27 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
       });
       return;
     }
+    if (!mounted) return;
+    final openAiTunnelId = _openAiTunnelIdController.text.trim();
+    if (widget.appState.config.useOpenAiTunnel &&
+        !RegExp(r'^tunnel_[0-9a-fA-F]{32}$').hasMatch(openAiTunnelId)) {
+      setState(() {
+        _tabIndex = 0;
+        _error = '请输入有效的 OpenAI Tunnel ID';
+      });
+      return;
+    }
+    if (widget.appState.config.useOpenAiTunnel) {
+      final duplicate = widget.appState.workspaces.firstWhereOrNull(
+        (item) =>
+            item.uuid != widget.workspace?.uuid &&
+            (item.openAiTunnelId ?? '').trim().toLowerCase() == openAiTunnelId.toLowerCase(),
+      );
+      if (duplicate != null) {
+        AppToast.error(context, '该 Tunnel ID 已被工作区「${duplicate.name}」使用');
+        return;
+      }
+    }
     if (_agentsMode == Workspace.agentsCustom && _agentsController.text.trim().isEmpty) {
       setState(() {
         _tabIndex = 2;
@@ -137,32 +174,43 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
     final customAgents = _agentsController.text.trim();
 
     final workspace = widget.workspace;
-    if (workspace == null) {
-      await widget.appState.createWorkspace(
-        name: name,
-        projectRoot: path,
-        selectedSkillNames: _inheritSkills ? null : selectedSkillNames,
-        selectedMcpNames: _inheritMcps ? null : selectedMcpNames,
-        agentsMode: _agentsMode,
-        customAgents: customAgents,
-      );
-    } else {
-      await widget.appState.updateWorkspace(
-        workspace.copyWith(
+    Workspace? createdWorkspace;
+    setState(() => _submitting = true);
+    try {
+      if (workspace == null) {
+        createdWorkspace = await widget.appState.createWorkspace(
           name: name,
           projectRoot: path,
           selectedSkillNames: _inheritSkills ? null : selectedSkillNames,
           selectedMcpNames: _inheritMcps ? null : selectedMcpNames,
-          clearSelectedSkillNames: _inheritSkills,
-          clearSelectedMcpNames: _inheritMcps,
           agentsMode: _agentsMode,
           customAgents: customAgents,
-        ),
-      );
+          openAiTunnelId: widget.appState.config.useOpenAiTunnel ? openAiTunnelId : null,
+        );
+      } else {
+        await widget.appState.updateWorkspace(
+          workspace.copyWith(
+            name: name,
+            projectRoot: path,
+            selectedSkillNames: _inheritSkills ? null : selectedSkillNames,
+            selectedMcpNames: _inheritMcps ? null : selectedMcpNames,
+            clearSelectedSkillNames: _inheritSkills,
+            clearSelectedMcpNames: _inheritMcps,
+            agentsMode: _agentsMode,
+            customAgents: customAgents,
+            openAiTunnelId: widget.appState.config.useOpenAiTunnel ? openAiTunnelId : null,
+            clearOpenAiTunnelId: !widget.appState.config.useOpenAiTunnel,
+          ),
+        );
+      }
+      if (!dialogContext.mounted) return;
+      Navigator.of(dialogContext).pop(createdWorkspace);
+      AppToast.success(dialogContext, workspace == null ? '工作区已创建' : '工作区已更新');
+    } catch (error) {
+      if (mounted) AppToast.error(context, '保存工作区失败：$error');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
-    if (!dialogContext.mounted) return;
-    Navigator.of(dialogContext).pop();
-    AppToast.success(dialogContext, workspace == null ? '工作区已创建' : '工作区已更新');
   }
 
   Future<void> _pickDirectory() async {
@@ -291,6 +339,26 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
           ),
           hint: '文件读写和命令默认都限制在此目录范围内。',
         ),
+        if (widget.appState.config.useOpenAiTunnel) ...[
+          const Gap(18),
+          AppField(
+            label: 'OpenAI Tunnel ID',
+            controller: _openAiTunnelIdController,
+            placeholder: 'tunnel_0123456789abcdef0123456789abcdef',
+            trailing: Button(
+              style: ButtonStyle.outline(size: ButtonSize.normal),
+              onPressed: () async {
+                final ok = await widget.appState.setupService.openUrl(
+                  'https://platform.openai.com/settings/organization/tunnels',
+                );
+                if (!mounted) return;
+                if (!ok) AppToast.error(context, '打开 OpenAI Tunnels 页面失败');
+              },
+              child: const Text('获取'),
+            ),
+            hint: '每个工作区需要独立 tunnel_id。',
+          ),
+        ],
       ],
     );
   }

@@ -132,11 +132,7 @@ class CloudflaredStep extends StatelessWidget {
             detail: '${version ?? ''}\n$binPath',
           )
         else ...[
-          AppNotice(
-            tone: AppNoticeTone.warning,
-            message: '未检测到 Cloudflared',
-            detail: '从 GitHub Releases 下载 $releaseAssetName，重命名为 $managedBinName 后放到下面的位置。',
-          ),
+          const AppNotice(tone: AppNoticeTone.warning, message: '未检测到 Cloudflared，请下载或手动放置。'),
           const Gap(AppSpacing.lg),
           Text('放置位置', style: AppTones.label(theme)),
           const Gap(AppSpacing.sm),
@@ -154,6 +150,92 @@ class CloudflaredStep extends StatelessWidget {
                 style: ButtonStyle.primary(size: ButtonSize.normal),
                 onPressed: busy ? null : onDownload,
                 child: const AppButtonLabel(icon: BootstrapIcons.download, label: '下载 cloudflared'),
+              ),
+              const Gap(AppSpacing.sm),
+              Button(
+                style: ButtonStyle.outline(size: ButtonSize.normal),
+                onPressed: busy ? null : onRecheck,
+                child: const Text('重新检测'),
+              ),
+              const Spacer(),
+              AppLink(label: '手动下载 →', onPressed: onOpenRelease),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class TunnelClientStep extends StatelessWidget {
+  final bool probed;
+  final String? binPath;
+  final String? version;
+  final bool busy;
+  final double downloadFraction;
+  final String installPath;
+  final String releaseAssetName;
+  final String managedBinName;
+  final VoidCallback onDownload;
+  final VoidCallback onRecheck;
+  final VoidCallback onOpenRelease;
+
+  const TunnelClientStep({
+    super.key,
+    required this.probed,
+    required this.binPath,
+    required this.version,
+    required this.busy,
+    required this.downloadFraction,
+    required this.installPath,
+    required this.releaseAssetName,
+    required this.managedBinName,
+    required this.onDownload,
+    required this.onRecheck,
+    required this.onOpenRelease,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (!probed) {
+      return const Center(
+        child: Padding(padding: EdgeInsets.all(AppSpacing.x2l), child: CircularProgressIndicator()),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (binPath != null)
+          AppNotice(
+            tone: AppNoticeTone.success,
+            message: 'tunnel-client 已就绪',
+            detail: '${version ?? ''}\n$binPath',
+          )
+        else ...[
+          const AppNotice(tone: AppNoticeTone.warning, message: '未检测到 tunnel-client，请下载或手动放置。'),
+          const Gap(AppSpacing.lg),
+          Text('放置位置', style: AppTones.label(theme)),
+          const Gap(AppSpacing.sm),
+          AppCopyField(value: installPath, icon: BootstrapIcons.folder2),
+          const Gap(AppSpacing.lg),
+          if (downloadFraction > 0) ...[
+            Progress(progress: downloadFraction),
+            const Gap(AppSpacing.sm),
+            AppMonoText('${(downloadFraction * 100).toStringAsFixed(0)}%'),
+            const Gap(AppSpacing.md),
+          ],
+          Row(
+            children: [
+              Button(
+                style: ButtonStyle.primary(size: ButtonSize.normal),
+                onPressed: busy ? null : onDownload,
+                child: const AppButtonLabel(
+                  icon: BootstrapIcons.download,
+                  label: '下载 tunnel-client',
+                ),
               ),
               const Gap(AppSpacing.sm),
               Button(
@@ -219,9 +301,9 @@ class TunnelStep extends StatelessWidget {
 
 class DoneStep extends StatelessWidget {
   final String domain;
-  final VoidCallback onOpenDocs;
+  final bool useOpenAiTunnel;
 
-  const DoneStep({super.key, required this.domain, required this.onOpenDocs});
+  const DoneStep({super.key, required this.domain, this.useOpenAiTunnel = false});
 
   @override
   Widget build(BuildContext context) {
@@ -229,19 +311,21 @@ class DoneStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AppNotice(
+        AppNotice(
           tone: AppNoticeTone.success,
-          message: '公网入口已就绪',
-          detail: '进入主页创建工作区，每个工作区会生成独立的连接地址。',
+          message: useOpenAiTunnel ? 'OpenAI Tunnel 配置已保存' : '公网入口已就绪',
+          detail: useOpenAiTunnel
+              ? '进入主页创建工作区，并为每个工作区填写独立的 OpenAI tunnel_id。'
+              : '进入主页创建工作区，每个工作区会生成独立的连接地址。',
         ),
-        const Gap(AppSpacing.lg),
-        Text('连接地址模板', style: AppTones.label(theme)),
-        const Gap(AppSpacing.sm),
-        AppCopyField(
-          value: domain.isEmpty ? 'https://<domain>/{uuid}/mcp' : 'https://$domain/{uuid}/mcp',
-        ),
-        const Gap(AppSpacing.lg),
-        AppLink(label: '如何在 ChatGPT 中添加 MCP Server →', onPressed: onOpenDocs),
+        if (!useOpenAiTunnel) ...[
+          const Gap(AppSpacing.lg),
+          Text('连接地址模板', style: AppTones.label(theme)),
+          const Gap(AppSpacing.sm),
+          AppCopyField(
+            value: domain.isEmpty ? 'https://<domain>/{uuid}/mcp' : 'https://$domain/{uuid}/mcp',
+          ),
+        ],
       ],
     );
   }

@@ -45,6 +45,7 @@ class _DoctorPageState extends State<DoctorPage> {
   Widget build(BuildContext context) {
     final checks = widget.appState.doctorChecks;
     final running = widget.appState.doctorRunning;
+    final titles = DoctorService.checkTitlesFor(widget.appState.config);
     final failed = checks.where((check) => check.state == DoctorState.fail).length;
     final checksByTitle = {for (final check in checks) check.title: check};
 
@@ -72,9 +73,9 @@ class _DoctorPageState extends State<DoctorPage> {
           crossAxisSpacing: AppSpacing.md,
           mainAxisSpacing: AppSpacing.md,
         ),
-        itemCount: DoctorService.checkTitles.length,
+        itemCount: titles.length,
         itemBuilder: (context, index) {
-          final title = DoctorService.checkTitles[index];
+          final title = titles[index];
           final check = checksByTitle[title];
           return _CheckTile(
             title: title,

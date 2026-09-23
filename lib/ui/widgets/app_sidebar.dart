@@ -475,7 +475,7 @@ class _ServiceFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final serverTone = appState.serverRunning ? AppStatusTone.live : AppStatusTone.error;
-    final tunnelTone = !appState.config.useCloudflared
+    final tunnelTone = !appState.config.tunnelEnabled
         ? AppStatusTone.warn
         : appState.tunnelRunning
         ? AppStatusTone.live
@@ -526,8 +526,10 @@ class _ServiceFooter extends StatelessWidget {
             tone: tunnelTone,
             icon: LucideIcons.cloud,
             label: 'Tunnel',
-            value: !appState.config.useCloudflared
+            value: !appState.config.tunnelEnabled
                 ? '公网访问已关闭'
+                : appState.config.useOpenAiTunnel
+                ? 'OpenAI Tunnel'
                 : appState.config.domain.isEmpty
                 ? '尚未配置域名'
                 : appState.config.domain,
@@ -540,7 +542,7 @@ class _ServiceFooter extends StatelessWidget {
                 height: 32,
                 child: Button(
                   style: ButtonStyle.secondary(density: ButtonDensity.icon, size: ButtonSize.small),
-                  onPressed: appState.busy || !appState.config.useCloudflared
+                  onPressed: appState.busy || !appState.config.tunnelEnabled
                       ? null
                       : () async {
                           await appState.restartTunnel();

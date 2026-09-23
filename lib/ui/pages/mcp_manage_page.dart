@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:shadcn_flutter/shadcn_flutter.dart';
@@ -36,17 +37,17 @@ class _McpManagePageState extends State<McpManagePage> {
       title: '下游 MCP',
       subtitle: mcps.isEmpty ? null : '共 ${mcps.length} 个，$enabledCount 个启用',
       actions: [
-        Button(
-          style: ButtonStyle.outline(size: ButtonSize.normal),
-          onPressed: _importing ? null : _importFromCodex,
-          child: AppButtonLabel(
-            icon: _importing ? BootstrapIcons.hourglassSplit : BootstrapIcons.download,
-            label: _importing ? '导入中…' : '从 Codex 导入',
-          ),
+        _McpImportMenuButton(
+          disabled: _importing,
+          label: _importing ? '导入中…' : '导入',
+          onCodex: () =>
+              unawaited(_importMcps(_capabilityManager.scanCodexMcps, 'codex_import', 'Codex')),
+          onCursor: () =>
+              unawaited(_importMcps(_capabilityManager.scanCursorMcps, 'cursor_import', 'Cursor')),
         ),
         const Gap(AppSpacing.sm),
         Button(
-          style: ButtonStyle.primary(size: ButtonSize.normal),
+          style: ButtonStyle.primary(size: ButtonSize.small),
           onPressed: () => _openEditor(context),
           child: const AppButtonLabel(icon: BootstrapIcons.plus, label: '添加'),
         ),
@@ -60,10 +61,13 @@ class _McpManagePageState extends State<McpManagePage> {
       icon: BootstrapIcons.hddRack,
       title: '暂无下游 MCP',
       subtitle: '启用后 ChatGPT 可以通过 mcp_call 调用这些服务器的工具。',
-      action: Button(
-        style: ButtonStyle.outline(size: ButtonSize.normal),
-        onPressed: _importing ? null : _importFromCodex,
-        child: const AppButtonLabel(icon: BootstrapIcons.download, label: '从 Codex 导入'),
+      action: _McpImportMenuButton(
+        disabled: _importing,
+        label: _importing ? '导入中…' : '导入',
+        onCodex: () =>
+            unawaited(_importMcps(_capabilityManager.scanCodexMcps, 'codex_import', 'Codex')),
+        onCursor: () =>
+            unawaited(_importMcps(_capabilityManager.scanCursorMcps, 'cursor_import', 'Cursor')),
       ),
     );
   }
@@ -101,21 +105,30 @@ class _McpManagePageState extends State<McpManagePage> {
     );
   }
 
-  Future<void> _importFromCodex() async {
+  Future<void> _importMcps(
+    Future<List<ScannedMcp>> Function() scanner,
+    String source,
+    String sourceLabel,
+  ) async {
+    if (_importing) return;
     setState(() => _importing = true);
 
     try {
-      final scanned = await _capabilityManager.scanCodexMcps();
+      final scanned = await scanner();
       var imported = 0;
+      var skipped = 0;
       for (final item in scanned) {
         final existing = widget.appState.mcps.firstWhereOrNull((mcp) => mcp.name == item.name);
-        if (existing != null) continue;
+        if (existing != null) {
+          skipped++;
+          continue;
+        }
         await widget.appState.saveMcp(
           DownstreamMcpEntry(
             name: item.name,
             transportJson: jsonEncode(item.transport),
             enabled: item.enabled,
-            source: 'codex_import',
+            source: source,
             startupTimeoutMs: item.startupTimeoutMs,
             toolTimeoutMs: item.toolTimeoutMs,
           ),
@@ -123,11 +136,14 @@ class _McpManagePageState extends State<McpManagePage> {
         imported++;
       }
       if (mounted) {
-        AppToast.success(context, '扫描到 ${scanned.length} 个，新导入 $imported 个');
+        AppToast.success(
+          context,
+          '从 $sourceLabel 扫描到 ${scanned.length} 个，新导入 $imported 个，跳过 $skipped 个',
+        );
       }
     } catch (error) {
       if (mounted) {
-        AppToast.error(context, '导入失败：$error');
+        AppToast.error(context, '从 $sourceLabel 导入失败：$error');
       }
     } finally {
       if (mounted) setState(() => _importing = false);
@@ -358,6 +374,84 @@ class _McpManagePageState extends State<McpManagePage> {
   }
 }
 
+class _McpImportMenuButton extends StatefulWidget {
+  final bool disabled;
+  final String label;
+  final VoidCallback onCodex;
+  final VoidCallback onCursor;
+
+  const _McpImportMenuButton({
+    required this.disabled,
+    required this.label,
+    required this.onCodex,
+    required this.onCursor,
+  });
+
+  @override
+  State<_McpImportMenuButton> createState() => _McpImportMenuButtonState();
+}
+
+class _McpImportMenuButtonState extends State<_McpImportMenuButton> {
+  bool _menuOpen = false;
+
+  Future<void> _showMenu() async {
+    if (_menuOpen || widget.disabled) return;
+    setState(() => _menuOpen = true);
+    final result = showDropdown<void>(
+      context: context,
+      alignment: Alignment.topLeft,
+      anchorAlignment: Alignment.bottomLeft,
+      offset: const Offset(0, 4),
+      builder: (_) => SizedBox(
+        width: 170,
+        child: DropdownMenu(
+          surfaceOpacity: 0.98,
+          surfaceBlur: 12,
+          children: [
+            MenuButton(
+              onPressed: (_) => widget.onCodex(),
+              child: const Row(
+                children: [
+                  Icon(BootstrapIcons.download, size: 13),
+                  Gap(AppSpacing.sm),
+                  Text('从 Codex 导入'),
+                ],
+              ),
+            ),
+            MenuButton(
+              onPressed: (_) => widget.onCursor(),
+              child: const Row(
+                children: [
+                  Icon(BootstrapIcons.download, size: 13),
+                  Gap(AppSpacing.sm),
+                  Text('从 Cursor 导入'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    try {
+      await result.future;
+    } finally {
+      if (mounted) setState(() => _menuOpen = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Button(
+      style: ButtonStyle.outline(size: ButtonSize.small),
+      onPressed: widget.disabled ? null : _showMenu,
+      child: AppButtonLabel(
+        icon: widget.disabled ? BootstrapIcons.hourglassSplit : BootstrapIcons.download,
+        label: widget.label,
+      ),
+    );
+  }
+}
+
 class _McpSummaryPanel extends StatelessWidget {
   final DownstreamMcpEntry entry;
   final DownstreamClient? client;
@@ -417,6 +511,8 @@ class _McpSummaryPanel extends StatelessWidget {
                     ? '内置'
                     : entry.isCodexImport
                     ? 'Codex 导入'
+                    : entry.isCursorImport
+                    ? 'Cursor 导入'
                     : '手动添加',
               ),
               const Spacer(),

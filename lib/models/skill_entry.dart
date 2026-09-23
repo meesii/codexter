@@ -31,8 +31,6 @@ class SkillEntry extends HiveObject {
     required this.createdAt,
   });
 
-  bool get isCodexImport => source == 'codex_import';
-
   SkillEntry copyWith({String? name, String? description, bool? enabled}) {
     return SkillEntry(
       name: name ?? this.name,
