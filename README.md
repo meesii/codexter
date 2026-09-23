@@ -1,6 +1,6 @@
 # Codexter
 
-给网页版 ChatGPT 使用的本地 MCP 工具服务，支持 **Windows 和 MacOS**。将本地项目映射为独立 MCP 地址，统一管理文件读写、代码搜索、命令执行、Skills、下游 MCP 和 Cloudflare Tunnel。
+给网页版 ChatGPT 使用的本地 MCP 工具服务，支持 **Windows 和 MacOS**。将本地项目映射为独立 MCP 入口，统一管理文件读写、代码搜索、命令执行、Skills、下游 MCP，以及 OpenAI Tunnel / Cloudflare Tunnel。
 
 ![Codexter](docs/screenshot.png)
 
@@ -18,8 +18,22 @@ MacOS 包同时包含 Apple Silicon 和 Intel 架构；从包含双平台发布�
 
 ## 快速开始
 
+首次启动时可以选择两种 Tunnel 方案：
+
+- **OpenAI Tunnel**：无需准备域名，配置 Runtime API Key，并为每个工作区绑定独立的 Tunnel ID。
+- **Cloudflare Tunnel**：使用自己的 Cloudflare 域名，所有工作区共用一个 Tunnel，通过 UUID 路径区分。
+
+### OpenAI Tunnel
+
+1. 首次向导选择 **OpenAI Tunnel**，安装或检测 `tunnel-client`。
+2. 填写 Runtime API Key 和 Tunnel ID，完成连接测试。
+3. 进入主页创建工作区，并为每个工作区填写独立的 Tunnel ID。
+4. 在 ChatGPT 中创建 MCP 应用并选择对应 Tunnel。
+
+### Cloudflare Tunnel
+
 1. 准备 Cloudflare 账号和已接入 Cloudflare 的域名。
-2. 完成首次向导：`Cloudflared → 域名 → Tunnel → 完成`。授权未自动打开时，复制界面中的完整链接。
+2. 首次向导选择 **Cloudflare Tunnel**，完成 `Cloudflared → 域名 → Tunnel → 完成`。授权未自动打开时，复制界面中的完整链接。
 3. 新建工作区、选择本地项目目录，复制生成的 HTTPS MCP 地址。
 4. 将地址添加到支持远程 MCP 的 ChatGPT 中。
 
@@ -27,7 +41,18 @@ MacOS 包同时包含 Apple Silicon 和 Intel 架构；从包含双平台发布�
 https://mcp.example.com/{workspace-uuid}/mcp
 ```
 
-工作区共用本地服务和 Tunnel。**多台电脑独立运行时，应使用不同的 Tunnel 名称和子域名**，避免覆盖另一台电脑的 DNS。重新授权不会补回已有 Tunnel 的运行凭据；不要把凭据提交到 Git。
+Cloudflare 模式下，工作区共用本地服务和 Tunnel。**多台电脑独立运行时，应使用不同的 Tunnel 名称和子域名**，避免覆盖另一台电脑的 DNS。重新授权不会补回已有 Tunnel 的运行凭据；不要把凭据提交到 Git。
+
+## Tunnel 方案
+
+|  | OpenAI Tunnel | Cloudflare Tunnel |
+| --- | --- | --- |
+| 域名 | 不需要 | 需要 |
+| 工作区 | 每个工作区独立 Tunnel ID | 共用 Tunnel，通过 UUID 区分 |
+| 本地客户端 | `tunnel-client` | `cloudflared` |
+| ChatGPT 连接 | 选择 Tunnel | 填写 HTTPS MCP URL |
+
+可以在全局设置的“公网服务”中切换 Tunnel 方案。
 
 ## 平台差异
 
