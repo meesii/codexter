@@ -94,12 +94,12 @@ class GlobalConfig extends HiveObject {
   bool get tunnelEnabled => useCloudflared || useOpenAiTunnel;
 
   String get baseUrl {
-    if (domain.isEmpty) return 'http://$host:$port';
+    if (useOpenAiTunnel || domain.isEmpty) return 'http://$host:$port';
     return 'https://$domain';
   }
 
-  /// ChatGPT MCP UI 的独立组件 origin。提交带 UI 的插件时必须显式配置 HTTPS 域名。
-  String get widgetOrigin => domain.isEmpty ? '' : 'https://$domain';
+  /// ChatGPT MCP UI 的独立组件 origin。OpenAI Tunnel 模式下休眠的 Cloudflare 域名不参与运行。
+  String get widgetOrigin => useOpenAiTunnel || domain.isEmpty ? '' : 'https://$domain';
 
   String workspaceUrl(String uuid) {
     return '$baseUrl/$uuid/mcp';

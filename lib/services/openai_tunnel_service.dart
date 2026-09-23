@@ -42,17 +42,19 @@ class OpenAiTunnelService extends ChangeNotifier {
     await stopAll();
     _log.clear();
 
-    final enabled = workspaces.where((workspace) => workspace.enabled).toList();
+    final enabled = workspaces
+        .where(
+          (workspace) =>
+              workspace.enabled && (workspace.openAiTunnelId?.trim().isNotEmpty ?? false),
+        )
+        .toList();
     if (enabled.isEmpty) return;
     _expectedCount = enabled.length;
     notifyListeners();
 
     try {
       for (final workspace in enabled) {
-        final tunnelId = workspace.openAiTunnelId?.trim() ?? '';
-        if (tunnelId.isEmpty) {
-          throw Exception('工作区「${workspace.name}」尚未配置 OpenAI tunnel_id');
-        }
+        final tunnelId = workspace.openAiTunnelId!.trim();
         await _startWorkspace(
           bin: bin,
           runtimeApiKey: runtimeApiKey,
@@ -123,7 +125,7 @@ class OpenAiTunnelService extends ChangeNotifier {
     final deadline = DateTime.now().add(Duration(seconds: readyTimeoutSec));
     while (DateTime.now().isBefore(deadline)) {
       if (!identical(_processes[workspace.uuid], process)) {
-        throw Exception('OpenAI tunnel-client 在就绪前退出：${workspace.name}');
+        throw Exception('OpenAI Tunnel Client 在就绪前退出：${workspace.name}');
       }
       if (await _isReady(healthFile)) {
         _ready.add(workspace.uuid);
@@ -135,7 +137,7 @@ class OpenAiTunnelService extends ChangeNotifier {
     }
 
     await stopWorkspace(workspace.uuid);
-    throw TimeoutException('OpenAI tunnel-client 在 ${readyTimeoutSec}s 内未就绪：${workspace.name}');
+    throw TimeoutException('OpenAI Tunnel Client 在 ${readyTimeoutSec}s 内未就绪：${workspace.name}');
   }
 
   Future<bool> _isReady(File healthFile) async {

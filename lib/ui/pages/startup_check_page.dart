@@ -22,7 +22,7 @@ class StartupCheckPage extends StatefulWidget {
 
 class _StartupCheckPageState extends State<StartupCheckPage> {
   static const _cloudflareSteps = ['本地服务', '启动隧道', '连接边缘', '完成注册'];
-  static const _openAiSteps = ['本地服务', '启动 tunnel-client', '连接 OpenAI', '完成注册'];
+  static const _openAiSteps = ['本地服务', '启动 Tunnel Client', '连接 OpenAI', '完成注册'];
 
   bool _starting = true;
   String? _error;

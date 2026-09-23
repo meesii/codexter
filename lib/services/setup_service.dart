@@ -172,7 +172,7 @@ class SetupService {
       final request = await client.getUrl(Uri.parse(tunnelClientDownloadUrl));
       final response = await request.close();
       if (response.statusCode != 200) {
-        throw Exception('下载 tunnel-client 失败 (HTTP ${response.statusCode})');
+        throw Exception('下载 Tunnel Client 失败 (HTTP ${response.statusCode})');
       }
 
       final total = response.contentLength;
@@ -200,11 +200,11 @@ class SetupService {
       await stagedBinary.writeAsBytes(executable.content as List<int>, flush: true);
       if (!Platform.isWindows) {
         final chmod = await Process.run('chmod', ['+x', stagedBinary.path]);
-        if (chmod.exitCode != 0) throw Exception('设置 tunnel-client 执行权限失败');
+        if (chmod.exitCode != 0) throw Exception('设置 Tunnel Client 执行权限失败');
       }
 
       final probe = await Process.run(stagedBinary.path, ['--version']);
-      if (probe.exitCode != 0) throw Exception('下载的 tunnel-client 无法运行');
+      if (probe.exitCode != 0) throw Exception('下载的 Tunnel Client 无法运行');
 
       await target.parent.create(recursive: true);
       if (await backup.exists()) await backup.delete();
@@ -243,7 +243,7 @@ class SetupService {
   }) async {
     final key = apiKey.trim();
     final id = tunnelId.trim();
-    if (key.isEmpty) throw const FormatException('Runtime API Key 不能为空');
+    if (key.isEmpty) throw const FormatException('OpenAI API Key 不能为空');
     if (!isValidOpenAiTunnelId(id)) {
       throw const FormatException('Tunnel ID 格式无效');
     }
@@ -299,7 +299,7 @@ class SetupService {
   }) async {
     final key = apiKey.trim();
     final id = tunnelId.trim();
-    if (key.isEmpty) throw const FormatException('Runtime API Key 不能为空');
+    if (key.isEmpty) throw const FormatException('OpenAI API Key 不能为空');
     if (!isValidOpenAiTunnelId(id)) {
       throw const FormatException('Tunnel ID 格式无效');
     }
@@ -345,7 +345,7 @@ class SetupService {
         if (await _isTunnelClientReady(healthFile)) return;
         await Future<void>.delayed(const Duration(milliseconds: 250));
       }
-      throw TimeoutException('tunnel-client 在 ${timeoutSec}s 内未连接到 OpenAI');
+      throw TimeoutException('Tunnel Client 在 ${timeoutSec}s 内未连接到 OpenAI');
     } finally {
       if (process != null && exitCode == null) {
         process.kill(ProcessSignal.sigterm);
@@ -391,10 +391,10 @@ class SetupService {
     final text = raw.trim();
     final lower = text.toLowerCase();
     if (lower.contains('unauthorized') || lower.contains('401')) {
-      return 'tunnel-client 认证失败，请检查 Runtime API Key 和 Tunnels Use 权限';
+      return 'Tunnel Client 认证失败，请检查 OpenAI API Key 和 Tunnels Use 权限';
     }
     if (lower.contains('forbidden') || lower.contains('403')) {
-      return 'Runtime API Key 缺少当前 Tunnel 的 Use 权限';
+      return 'OpenAI API Key 缺少当前 Tunnel 的 Use 权限';
     }
     if (lower.contains('not found') || lower.contains('404')) {
       return '未找到该 Tunnel，或当前 Key 无权使用它';
@@ -402,8 +402,8 @@ class SetupService {
     final lines = text.split(RegExp(r'\r?\n')).where((line) => line.trim().isNotEmpty).toList();
     final tail = lines.length <= 4 ? lines : lines.sublist(lines.length - 4);
     return tail.isEmpty
-        ? 'tunnel-client 启动失败（exit $exitCode）'
-        : 'tunnel-client 启动失败（exit $exitCode）：${tail.join(' / ')}';
+        ? 'Tunnel Client 启动失败（exit $exitCode）'
+        : 'Tunnel Client 启动失败（exit $exitCode）：${tail.join(' / ')}';
   }
 
   OpenAiTunnelValidationException _openAiTunnelValidationException(int statusCode, String body) {
@@ -422,11 +422,11 @@ class SetupService {
     return switch (statusCode) {
       401 => OpenAiTunnelValidationException(
         OpenAiTunnelValidationIssue.unauthorized,
-        'Runtime API Key 无效或已失效$suffix',
+        'OpenAI API Key 无效或已失效$suffix',
       ),
       403 => OpenAiTunnelValidationException(
         OpenAiTunnelValidationIssue.forbidden,
-        'Runtime API Key 缺少当前 Tunnel 的 Read 权限$suffix',
+        'OpenAI API Key 缺少当前 Tunnel 的 Read 权限$suffix',
       ),
       404 => OpenAiTunnelValidationException(
         OpenAiTunnelValidationIssue.notFound,
@@ -556,14 +556,12 @@ class SetupService {
       if (backup != null && await backup.exists()) {
         await backup.rename(certFile.path);
       }
-      // cloudflared 的登录传输只轮询有限次数。部分代理/网络会让未授权响应立即返回，
-      // 使轮询在用户来得及确认浏览器授权前就耗尽；这种情况是“待授权”，不是认证失败。
-      final normalizedOutput = loginOutput.toLowerCase();
-      final waitingForAuthorization =
-          reportedLoginUrl != null &&
-          normalizedOutput.contains('failed to fetch resource') &&
-          normalizedOutput.contains('waiting for login');
-      if (waitingForAuthorization) return CloudflareLoginResult.pending;
+      // cloudflared 的浏览器授权和证书回传可能因网络抖动提前退出。
+      // 只要已经拿到授权 URL，等待授权或证书下载阶段的瞬时网络错误都视为“待完成”，
+      // 让用户完成浏览器授权后重试，而不是直接展示整段 cloudflared 原始日志。
+      if (isCloudflareLoginRetryable(loginOutput, hasLoginUrl: reportedLoginUrl != null)) {
+        return CloudflareLoginResult.pending;
+      }
 
       return CloudflareLoginResult.failed('登录未完成 (exit $exitCode)：$loginOutput');
     } catch (_) {
@@ -579,6 +577,19 @@ class SetupService {
         } catch (_) {}
       }
     }
+  }
+
+  static bool isCloudflareLoginRetryable(String output, {required bool hasLoginUrl}) {
+    if (!hasLoginUrl) return false;
+    final text = output.toLowerCase();
+    final waitingForAuthorization =
+        text.contains('failed to fetch resource') && text.contains('waiting for login');
+    final certificateTransportFailure =
+        text.contains('failed to write the certificate') &&
+        (text.contains('tls handshake timeout') ||
+            text.contains('i/o timeout') ||
+            text.contains('context deadline exceeded'));
+    return waitingForAuthorization || certificateTransportFailure;
   }
 
   Future<String> createTunnel(String _, String tunnelName) async {

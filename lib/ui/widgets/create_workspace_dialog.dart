@@ -142,20 +142,24 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
     }
     if (!mounted) return;
     final openAiTunnelId = _openAiTunnelIdController.text.trim();
-    if (widget.appState.config.useOpenAiTunnel &&
-        !RegExp(r'^tunnel_[0-9a-fA-F]{32}$').hasMatch(openAiTunnelId)) {
-      setState(() {
-        _tabIndex = 0;
-        _error = '请输入有效的 OpenAI Tunnel ID';
-      });
-      return;
-    }
     if (widget.appState.config.useOpenAiTunnel) {
-      final duplicate = widget.appState.workspaces.firstWhereOrNull(
-        (item) =>
-            item.uuid != widget.workspace?.uuid &&
-            (item.openAiTunnelId ?? '').trim().toLowerCase() == openAiTunnelId.toLowerCase(),
-      );
+      final creating = widget.workspace == null;
+      if ((creating && openAiTunnelId.isEmpty) ||
+          (openAiTunnelId.isNotEmpty &&
+              !RegExp(r'^tunnel_[0-9a-fA-F]{32}$').hasMatch(openAiTunnelId))) {
+        setState(() {
+          _tabIndex = 0;
+          _error = '请输入有效的 OpenAI Tunnel ID';
+        });
+        return;
+      }
+      final duplicate = openAiTunnelId.isEmpty
+          ? null
+          : widget.appState.workspaces.firstWhereOrNull(
+              (item) =>
+                  item.uuid != widget.workspace?.uuid &&
+                  (item.openAiTunnelId ?? '').trim().toLowerCase() == openAiTunnelId.toLowerCase(),
+            );
       if (duplicate != null) {
         AppToast.error(context, '该 Tunnel ID 已被工作区「${duplicate.name}」使用');
         return;
@@ -199,7 +203,6 @@ class _CreateWorkspaceDialogState extends State<CreateWorkspaceDialog> {
             agentsMode: _agentsMode,
             customAgents: customAgents,
             openAiTunnelId: widget.appState.config.useOpenAiTunnel ? openAiTunnelId : null,
-            clearOpenAiTunnelId: !widget.appState.config.useOpenAiTunnel,
           ),
         );
       }

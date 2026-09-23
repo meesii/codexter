@@ -135,6 +135,8 @@ class WorkspaceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final live = appState.isWorkspaceLive(workspace.uuid);
+    final missingOpenAiTunnel =
+        appState.config.useOpenAiTunnel && (workspace.openAiTunnelId ?? '').trim().isEmpty;
     final stats = appState.workspaceStats(workspace.uuid);
     final toolLogs = appState
         .workspaceLogs(workspace.uuid)
@@ -177,7 +179,12 @@ class WorkspaceCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    AppTag(label: live ? '运行中' : '已停止', color: live ? AppTones.success : null),
+                    AppTag(
+                      label: missingOpenAiTunnel ? '未配置 Tunnel ID' : (live ? '运行中' : '已停止'),
+                      color: missingOpenAiTunnel
+                          ? AppTones.warning
+                          : (live ? AppTones.success : null),
+                    ),
                     const Gap(AppSpacing.md),
                     Switch(
                       value: workspace.enabled,

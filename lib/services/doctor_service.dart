@@ -46,8 +46,8 @@ class DoctorService {
   ];
 
   static const openAiCheckTitles = <String>[
-    'tunnel-client',
-    'Runtime API Key',
+    'Tunnel Client',
+    'OpenAI API Key',
     '工作区 Tunnel',
     '本地 MCP 服务',
     'OpenAI Tunnel',
@@ -169,10 +169,10 @@ class DoctorService {
     final bin = await SetupService().findTunnelClientBin(configuredPath: config.tunnelClientBin);
     if (bin == null) {
       return const DoctorCheck(
-        title: 'tunnel-client',
+        title: 'Tunnel Client',
         state: DoctorState.fail,
-        detail: '未找到 OpenAI tunnel-client',
-        hint: '安装 tunnel-client，或在全局设置中填写可执行文件路径',
+        detail: '未找到 OpenAI Tunnel Client',
+        hint: '安装 Tunnel Client，或在全局设置中填写可执行文件路径',
       );
     }
     try {
@@ -180,25 +180,25 @@ class DoctorService {
       if (result.exitCode == 0) {
         final version = '${result.stdout}'.trim();
         return DoctorCheck(
-          title: 'tunnel-client',
+          title: 'Tunnel Client',
           state: DoctorState.pass,
           detail: version.isEmpty ? bin : version,
         );
       }
       return DoctorCheck(
-        title: 'tunnel-client',
+        title: 'Tunnel Client',
         state: DoctorState.fail,
-        detail: 'tunnel-client 无法正常执行（exit ${result.exitCode}）',
+        detail: 'Tunnel Client 无法正常执行（exit ${result.exitCode}）',
         rawError: '${result.stderr}'.trim(),
-        hint: '重新安装 tunnel-client，或检查当前可执行文件路径',
+        hint: '重新安装 Tunnel Client，或检查当前可执行文件路径',
       );
     } catch (error) {
       return DoctorCheck(
-        title: 'tunnel-client',
+        title: 'Tunnel Client',
         state: DoctorState.fail,
-        detail: 'tunnel-client 无法正常执行',
+        detail: 'Tunnel Client 无法正常执行',
         rawError: '$error',
-        hint: '重新安装 tunnel-client，或检查当前可执行文件路径',
+        hint: '重新安装 Tunnel Client，或检查当前可执行文件路径',
       );
     }
   }
@@ -210,10 +210,10 @@ class DoctorService {
     final key = config.openAiRuntimeApiKey.trim();
     if (key.isEmpty) {
       return const DoctorCheck(
-        title: 'Runtime API Key',
+        title: 'OpenAI API Key',
         state: DoctorState.fail,
         detail: '尚未配置',
-        hint: '在全局设置中填写具有 Tunnels Read + Use 权限的 Runtime API Key',
+        hint: '在全局设置中填写具有 Tunnels Read + Use 权限的 OpenAI API Key',
       );
     }
 
@@ -223,7 +223,7 @@ class DoctorService {
         .firstWhere(SetupService.isValidOpenAiTunnelId, orElse: () => '');
     if (tunnelId.isEmpty) {
       return const DoctorCheck(
-        title: 'Runtime API Key',
+        title: 'OpenAI API Key',
         state: DoctorState.warn,
         detail: '已配置，暂无有效 Tunnel ID 可验证权限',
         hint: '为启用的工作区填写有效 Tunnel ID 后重新检查',
@@ -233,15 +233,15 @@ class DoctorService {
     try {
       await SetupService().validateOpenAiTunnelRuntimeKey(apiKey: key, tunnelId: tunnelId);
       return const DoctorCheck(
-        title: 'Runtime API Key',
+        title: 'OpenAI API Key',
         state: DoctorState.pass,
         detail: 'OpenAI API 验证通过',
       );
     } on OpenAiTunnelValidationException catch (error) {
-      return _openAiValidationFailureCheck(title: 'Runtime API Key', error: error, config: config);
+      return _openAiValidationFailureCheck(title: 'OpenAI API Key', error: error, config: config);
     } catch (error) {
       return DoctorCheck(
-        title: 'Runtime API Key',
+        title: 'OpenAI API Key',
         state: DoctorState.fail,
         detail: 'OpenAI API 验证未完成',
         rawError: '$error',
@@ -262,16 +262,11 @@ class DoctorService {
     final missing = enabled
         .where((workspace) => (workspace.openAiTunnelId ?? '').trim().isEmpty)
         .toList();
-    if (missing.isNotEmpty) {
-      return DoctorCheck(
-        title: '工作区 Tunnel',
-        state: DoctorState.fail,
-        detail: '${missing.length} 个工作区缺少 tunnel_id',
-        hint: '编辑对应工作区并填写 OpenAI Tunnel ID',
-      );
-    }
+    final configured = enabled
+        .where((workspace) => (workspace.openAiTunnelId ?? '').trim().isNotEmpty)
+        .toList();
 
-    final invalid = enabled
+    final invalid = configured
         .where((workspace) => !SetupService.isValidOpenAiTunnelId(workspace.openAiTunnelId ?? ''))
         .toList();
     if (invalid.isNotEmpty) {
@@ -284,7 +279,7 @@ class DoctorService {
     }
 
     final seen = <String, Workspace>{};
-    for (final workspace in enabled) {
+    for (final workspace in configured) {
       final id = workspace.openAiTunnelId!.trim().toLowerCase();
       final duplicate = seen[id];
       if (duplicate != null) {
@@ -298,16 +293,28 @@ class DoctorService {
       seen[id] = workspace;
     }
 
-    final key = config.openAiRuntimeApiKey.trim();
-    if (key.isEmpty) {
-      return const DoctorCheck(
+    if (configured.isEmpty) {
+      return DoctorCheck(
         title: '工作区 Tunnel',
         state: DoctorState.warn,
-        detail: 'Tunnel ID 格式正常，等待 Runtime API Key 验证',
+        detail: '${missing.length} 个工作区尚未配置 tunnel_id',
+        hint: '切换完成后可编辑对应工作区并填写 OpenAI Tunnel ID',
       );
     }
 
-    for (final workspace in enabled) {
+    final key = config.openAiRuntimeApiKey.trim();
+    if (key.isEmpty) {
+      return DoctorCheck(
+        title: '工作区 Tunnel',
+        state: DoctorState.warn,
+        detail: missing.isEmpty
+            ? 'Tunnel ID 格式正常，等待 OpenAI API Key 验证'
+            : '${configured.length} 个已配置，${missing.length} 个待配置；等待 OpenAI API Key 验证',
+        hint: missing.isEmpty ? null : '未配置的工作区不会启动 OpenAI Tunnel',
+      );
+    }
+
+    for (final workspace in configured) {
       try {
         await SetupService().validateOpenAiTunnelRuntimeKey(
           apiKey: key,
@@ -331,10 +338,19 @@ class DoctorService {
       }
     }
 
+    if (missing.isNotEmpty) {
+      return DoctorCheck(
+        title: '工作区 Tunnel',
+        state: DoctorState.warn,
+        detail: '${configured.length} 个工作区已验证，${missing.length} 个尚未配置 tunnel_id',
+        hint: '未配置的工作区不会启动 OpenAI Tunnel，可稍后逐个填写',
+      );
+    }
+
     return DoctorCheck(
       title: '工作区 Tunnel',
       state: DoctorState.pass,
-      detail: '${enabled.length} 个工作区均已通过 OpenAI API 验证',
+      detail: '${configured.length} 个工作区均已通过 OpenAI API 验证',
     );
   }
 
@@ -360,17 +376,17 @@ class DoctorService {
         return DoctorCheck(
           title: title,
           state: DoctorState.fail,
-          detail: '${prefix}Runtime API Key 无效或已失效',
+          detail: '${prefix}OpenAI API Key 无效或已失效',
           rawError: error.message,
-          hint: '重新填写有效的 Runtime API Key',
+          hint: '重新填写有效的 OpenAI API Key',
         );
       case OpenAiTunnelValidationIssue.forbidden:
         return DoctorCheck(
           title: title,
           state: DoctorState.fail,
-          detail: '${prefix}Runtime API Key 缺少 Tunnel Read 权限',
+          detail: '${prefix}OpenAI API Key 缺少 Tunnel Read 权限',
           rawError: error.message,
-          hint: '为 Runtime API Key 添加当前 Tunnel 的 Read 权限',
+          hint: '为 OpenAI API Key 添加当前 Tunnel 的 Read 权限',
         );
       case OpenAiTunnelValidationIssue.notFound:
         return DoctorCheck(
@@ -378,7 +394,7 @@ class DoctorService {
           state: DoctorState.fail,
           detail: '${prefix}Tunnel 不存在或当前 Key 无权查看',
           rawError: error.message,
-          hint: '检查 Tunnel ID，并确认 Runtime API Key 可以访问该 Tunnel',
+          hint: '检查 Tunnel ID，并确认 OpenAI API Key 可以访问该 Tunnel',
         );
       case OpenAiTunnelValidationIssue.server:
         return DoctorCheck(
@@ -400,12 +416,22 @@ class DoctorService {
   }
 
   DoctorCheck _checkOpenAiTunnel(List<Workspace> workspaces, bool running, String? tunnelError) {
-    final hasEnabledWorkspace = workspaces.any((workspace) => workspace.enabled);
-    if (!hasEnabledWorkspace) {
+    final enabled = workspaces.where((workspace) => workspace.enabled).toList();
+    if (enabled.isEmpty) {
       return const DoctorCheck(
         title: 'OpenAI Tunnel',
         state: DoctorState.skip,
         detail: '等待创建并启用工作区',
+      );
+    }
+    final hasConfiguredWorkspace = enabled.any(
+      (workspace) => SetupService.isValidOpenAiTunnelId(workspace.openAiTunnelId ?? ''),
+    );
+    if (!hasConfiguredWorkspace) {
+      return const DoctorCheck(
+        title: 'OpenAI Tunnel',
+        state: DoctorState.skip,
+        detail: '等待工作区配置 Tunnel ID',
       );
     }
 
@@ -413,8 +439,8 @@ class DoctorService {
     return DoctorCheck(
       title: 'OpenAI Tunnel',
       state: running ? DoctorState.pass : DoctorState.fail,
-      detail: running ? 'tunnel-client 已就绪' : 'tunnel-client 未就绪',
-      hint: running ? null : '检查 tunnel-client、Runtime API Key 和各工作区 tunnel_id',
+      detail: running ? 'Tunnel Client 已就绪' : 'Tunnel Client 未就绪',
+      hint: running ? null : '检查 Tunnel Client、OpenAI API Key 和各工作区 tunnel_id',
       rawError: raw.isEmpty ? null : raw,
       issue: running ? TunnelIssueCode.none : TunnelIssueCode.tunnelStopped,
       repairable: !running,

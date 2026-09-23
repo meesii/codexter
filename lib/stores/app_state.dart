@@ -290,7 +290,7 @@ class AppState extends ChangeNotifier {
       return persisted.copyWith(openAiRuntimeApiKey: secureKey);
     } catch (error) {
       // 安全存储暂不可用时保留旧配置，避免迁移失败导致用户现有 Key 丢失。
-      debugPrint('读取或迁移 Runtime API Key 失败: $error');
+      debugPrint('读取或迁移 OpenAI API Key 失败: $error');
       return persisted;
     }
   }
@@ -310,14 +310,14 @@ class AppState extends ChangeNotifier {
       await secretStore.writeOpenAiRuntimeApiKey(nextRuntimeKey);
     }
     try {
-      // Runtime API Key 只保留在系统安全存储；Hive 中始终写空值以兼容旧字段结构。
+      // OpenAI API Key 只保留在系统安全存储；Hive 中始终写空值以兼容旧字段结构。
       await ConfigStore.saveGlobalConfig(config.copyWith(openAiRuntimeApiKey: ''));
     } catch (_) {
       if (runtimeKeyChanged) {
         try {
           await secretStore.writeOpenAiRuntimeApiKey(previousRuntimeKey);
         } catch (rollbackError) {
-          debugPrint('Runtime API Key 安全存储回滚失败: $rollbackError');
+          debugPrint('OpenAI API Key 安全存储回滚失败: $rollbackError');
         }
       }
       rethrow;
@@ -385,7 +385,7 @@ class AppState extends ChangeNotifier {
   Future<void> updateWorkspace(Workspace workspace) async {
     final index = _workspaces.indexWhere((item) => item.uuid == workspace.uuid);
     if (index < 0) throw StateError('工作区不存在：${workspace.uuid}');
-    _validateOpenAiWorkspaceTunnel(workspace, excludeUuid: workspace.uuid);
+    _validateOpenAiWorkspaceTunnel(workspace);
 
     final previous = _workspaces[index];
     final previousWorkspaces = _workspaces;
@@ -415,23 +415,87 @@ class AppState extends ChangeNotifier {
     await _restartOpenAiTunnelsIfRunning();
   }
 
-  void _validateOpenAiWorkspaceTunnel(Workspace workspace, {String? excludeUuid}) {
+  void _validateOpenAiWorkspaceTunnel(Workspace workspace) {
     if (!_config.useOpenAiTunnel) return;
-    final tunnelId = workspace.openAiTunnelId?.trim() ?? '';
-    if (workspace.enabled && tunnelId.isEmpty) {
-      throw const FormatException('启用的工作区必须配置 OpenAI Tunnel ID');
+    final candidates = [
+      for (final item in _workspaces) item.uuid == workspace.uuid ? workspace : item,
+    ];
+    if (!_workspaces.any((item) => item.uuid == workspace.uuid)) candidates.add(workspace);
+    _validateOpenAiWorkspaceTunnels(candidates);
+  }
+
+  void _validateOpenAiWorkspaceTunnels(List<Workspace> workspaces) {
+    final used = <String, String>{};
+    for (final workspace in workspaces) {
+      final tunnelId = workspace.openAiTunnelId?.trim() ?? '';
+      if (tunnelId.isEmpty) continue;
+      if (!SetupService.isValidOpenAiTunnelId(tunnelId)) {
+        throw FormatException('工作区「${workspace.name}」的 OpenAI Tunnel ID 格式无效');
+      }
+      final normalized = tunnelId.toLowerCase();
+      final previousName = used[normalized];
+      if (previousName != null) {
+        throw StateError('工作区「${workspace.name}」与「$previousName」使用了相同的 Tunnel ID');
+      }
+      used[normalized] = workspace.name;
     }
-    if (tunnelId.isNotEmpty && !SetupService.isValidOpenAiTunnelId(tunnelId)) {
-      throw const FormatException('OpenAI Tunnel ID 格式无效');
+  }
+
+  /// 在两种 Tunnel 方案之间原子切换。目标方案启动失败时恢复原配置和工作区。
+  Future<void> switchTunnelProvider({
+    required GlobalConfig targetConfig,
+    required List<Workspace> targetWorkspaces,
+  }) async {
+    if (_busy || _servicesStopping || _shuttingDown) {
+      throw StateError('服务正在处理其他任务，请稍后重试');
     }
-    final duplicate = _workspaces.firstWhereOrNull(
-      (item) =>
-          item.uuid != excludeUuid &&
-          (item.openAiTunnelId ?? '').trim().toLowerCase() == tunnelId.toLowerCase() &&
-          tunnelId.isNotEmpty,
-    );
-    if (duplicate != null) {
-      throw StateError('该 Tunnel ID 已被工作区「${duplicate.name}」使用');
+    if (targetWorkspaces.length != _workspaces.length ||
+        targetWorkspaces.map((item) => item.uuid).toSet().length != _workspaces.length ||
+        !_workspaces.every((item) => targetWorkspaces.any((target) => target.uuid == item.uuid))) {
+      throw StateError('切换 Tunnel 时工作区集合发生变化，请重新打开切换向导');
+    }
+    if (targetConfig.useOpenAiTunnel) {
+      _validateOpenAiWorkspaceTunnels(targetWorkspaces);
+    }
+
+    final previousConfig = _config;
+    final previousWorkspaces = List<Workspace>.of(_workspaces);
+    _busy = true;
+    _lastError = null;
+    notifyListeners();
+
+    try {
+      await _stopServices();
+      _workspaces = List<Workspace>.of(targetWorkspaces);
+      for (final workspace in _workspaces) {
+        await ConfigStore.saveWorkspace(workspace);
+      }
+      await saveGlobalConfig(targetConfig);
+      await _restartServicesStrict();
+      _lastError = null;
+    } catch (switchError) {
+      Object? rollbackError;
+      try {
+        await _stopServices();
+        _workspaces = previousWorkspaces;
+        for (final workspace in previousWorkspaces) {
+          await ConfigStore.saveWorkspace(workspace);
+        }
+        await saveGlobalConfig(previousConfig);
+        await _restartServicesStrict();
+      } catch (error) {
+        rollbackError = error;
+      }
+      if (rollbackError != null) {
+        _lastError = 'Tunnel 切换失败：$switchError；恢复原方案也失败：$rollbackError';
+        throw StateError(_lastError!);
+      }
+      _lastError = null;
+      throw StateError('Tunnel 切换失败，已恢复原方案：$switchError');
+    } finally {
+      _busy = false;
+      notifyListeners();
+      _refreshDoctorIfAvailable();
     }
   }
 
@@ -464,7 +528,7 @@ class AppState extends ChangeNotifier {
     final wasRunning = _tunnelRunning;
     _tunnelRunning = running;
     if (wasRunning && !running) {
-      _lastError = 'OpenAI tunnel-client 连接已中断，请重新连接';
+      _lastError = 'OpenAI Tunnel Client 连接已中断，请重新连接';
       _refreshDoctorIfAvailable();
     }
     notifyListeners();
@@ -928,11 +992,14 @@ class AppState extends ChangeNotifier {
     if (_tunnelRunning || _servicesStopping || _shuttingDown) return;
 
     if (_config.useOpenAiTunnel) {
-      if (!_workspaces.any((workspace) => workspace.enabled)) return;
+      final hasConfiguredWorkspace = _workspaces.any(
+        (workspace) => workspace.enabled && (workspace.openAiTunnelId?.trim().isNotEmpty ?? false),
+      );
+      if (!hasConfiguredWorkspace) return;
       final bin = await setupService.findTunnelClientBin(configuredPath: _config.tunnelClientBin);
-      if (bin == null) throw Exception('未找到 tunnel-client');
+      if (bin == null) throw Exception('未找到 Tunnel Client');
       final runtimeApiKey = _config.openAiRuntimeApiKey.trim();
-      if (runtimeApiKey.isEmpty) throw Exception('尚未配置 OpenAI Runtime API Key');
+      if (runtimeApiKey.isEmpty) throw Exception('尚未配置 OpenAI API Key');
       await openAiTunnelService.startAll(
         bin: bin,
         runtimeApiKey: runtimeApiKey,
@@ -944,7 +1011,7 @@ class AppState extends ChangeNotifier {
         await openAiTunnelService.stopAll();
         return;
       }
-      _tunnelRunning = true;
+      _tunnelRunning = openAiTunnelService.isRunning;
       return;
     }
 

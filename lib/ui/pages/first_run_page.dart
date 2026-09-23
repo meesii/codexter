@@ -331,7 +331,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AppField(
-          label: 'Runtime API Key',
+          label: 'OpenAI API Key',
           controller: _openAiApiKeyController,
           obscure: true,
           placeholder: 'sk-...',
@@ -342,7 +342,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
           label: 'OpenAI Tunnel ID',
           controller: _openAiTunnelIdController,
           placeholder: 'tunnel_0123456789abcdef0123456789abcdef',
-          hint: '这里只用于验证 Runtime API Key 和 Tunnel Read 权限；之后每个工作区分别配置自己的 tunnel_id。',
+          hint: '这里只用于验证 OpenAI API Key 和 Tunnel Read 权限；之后每个工作区分别配置自己的 tunnel_id。',
         ),
         const Gap(AppSpacing.lg),
         Wrap(
@@ -364,7 +364,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
           ],
         ),
         const Gap(AppSpacing.md),
-        Text('点击「下一步」时会自动验证 Runtime API Key 和 Tunnel Read 权限。', style: AppTones.muted(theme)),
+        Text('点击「下一步」时会自动验证 OpenAI API Key 和 Tunnel Read 权限。', style: AppTones.muted(theme)),
       ],
     );
   }
@@ -372,9 +372,9 @@ class _FirstRunPageState extends State<FirstRunPage> {
   Widget _buildOpenAiConnectionTestStep() {
     return const AppNotice(
       tone: AppNoticeTone.info,
-      message: '测试 tunnel-client 到 OpenAI 的真实连接',
+      message: '测试 Tunnel Client 到 OpenAI 的真实连接',
       detail:
-          '点击「下一步」后会临时启动 tunnel-client，使用内置 MCP stub 验证当前 Runtime API Key 的 Tunnels Use 权限和控制面连接；验证结束后会立即关闭测试进程。',
+          '点击「下一步」后会临时启动 Tunnel Client，使用内置 MCP stub 验证当前 OpenAI API Key 的 Tunnels Use 权限和控制面连接；验证结束后会立即关闭测试进程。',
     );
   }
 
@@ -462,9 +462,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
       if (!mounted) return false;
       AppToast.success(
         context,
-        result.name == null || result.name!.isEmpty
-            ? 'Runtime API Key 验证通过'
-            : '验证通过：${result.name}',
+        result.name == null || result.name!.isEmpty ? 'OpenAI API Key 验证通过' : '验证通过：${result.name}',
       );
       return true;
     } catch (error) {
@@ -481,7 +479,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
     if (_busy) return false;
     final bin = _tunnelClientBin;
     if (bin == null) {
-      AppToast.warning(context, '请先安装 tunnel-client');
+      AppToast.warning(context, '请先安装 Tunnel Client');
       return false;
     }
 
@@ -557,7 +555,7 @@ class _FirstRunPageState extends State<FirstRunPage> {
         await _probeTunnelClient();
         if (!mounted) return;
         if (_tunnelClientBin == null) {
-          AppToast.warning(context, '请先安装或指定 tunnel-client');
+          AppToast.warning(context, '请先安装或指定 Tunnel Client');
           return;
         }
       } else if (_cloudflaredBin == null) {
@@ -577,7 +575,6 @@ class _FirstRunPageState extends State<FirstRunPage> {
               useCloudflared: false,
               tunnelClientBin: _tunnelClientBin,
               openAiRuntimeApiKey: _openAiApiKeyController.text.trim(),
-              domain: '',
             ),
           );
         } catch (error) {

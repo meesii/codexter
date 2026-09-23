@@ -211,11 +211,11 @@ class TunnelClientStep extends StatelessWidget {
         if (binPath != null)
           AppNotice(
             tone: AppNoticeTone.success,
-            message: 'tunnel-client 已就绪',
+            message: 'Tunnel Client 已就绪',
             detail: '${version ?? ''}\n$binPath',
           )
         else ...[
-          const AppNotice(tone: AppNoticeTone.warning, message: '未检测到 tunnel-client，请下载或手动放置。'),
+          const AppNotice(tone: AppNoticeTone.warning, message: '未检测到 Tunnel Client，请下载或手动放置。'),
           const Gap(AppSpacing.lg),
           Text('放置位置', style: AppTones.label(theme)),
           const Gap(AppSpacing.sm),
@@ -234,7 +234,7 @@ class TunnelClientStep extends StatelessWidget {
                 onPressed: busy ? null : onDownload,
                 child: const AppButtonLabel(
                   icon: BootstrapIcons.download,
-                  label: '下载 tunnel-client',
+                  label: '下载 Tunnel Client',
                 ),
               ),
               const Gap(AppSpacing.sm),
