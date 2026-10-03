@@ -4,6 +4,7 @@ import '../../models/mcp_log_entry.dart';
 import '../theme/app_theme.dart';
 import 'app_components.dart';
 import 'app_dialog.dart';
+import 'log_export_dialog.dart';
 import 'app_spacing.dart';
 import 'app_toast.dart';
 import 'json_view.dart';
@@ -20,6 +21,8 @@ class LogTimeline extends StatefulWidget {
   final int processCount;
   final int tabIndex;
   final ValueChanged<int> onTabChanged;
+  final String workspaceName;
+  final String projectRoot;
   final VoidCallback? onClear;
   final void Function(McpLogEntry, String)? onPreviewFile;
   final String? previewEntryId;
@@ -33,6 +36,8 @@ class LogTimeline extends StatefulWidget {
     required this.processCount,
     required this.tabIndex,
     required this.onTabChanged,
+    required this.workspaceName,
+    required this.projectRoot,
     this.onClear,
     this.onPreviewFile,
     this.previewEntryId,
@@ -237,9 +242,16 @@ class _LogTimelineState extends State<LogTimeline> {
                   const Gap(AppSpacing.sm),
                   _LogOptionsButton(
                     hideProtocolRequests: _hideProtocolRequests,
+                    hasExportableLogs: widget.entries.any((entry) => entry.isToolCall),
                     canClear: widget.entries.isNotEmpty && widget.onClear != null,
                     onHideProtocolRequestsChanged: (value) =>
                         setState(() => _hideProtocolRequests = value),
+                    onExport: () => LogExportDialog.show(
+                      context,
+                      entries: widget.entries,
+                      workspaceName: widget.workspaceName,
+                      projectRoot: widget.projectRoot,
+                    ),
                     onClear: _clearLogs,
                   ),
                 ],
@@ -329,14 +341,18 @@ class _LogTimelineState extends State<LogTimeline> {
 
 class _LogOptionsButton extends StatefulWidget {
   final bool hideProtocolRequests;
+  final bool hasExportableLogs;
   final bool canClear;
   final ValueChanged<bool> onHideProtocolRequestsChanged;
+  final VoidCallback onExport;
   final VoidCallback onClear;
 
   const _LogOptionsButton({
     required this.hideProtocolRequests,
+    required this.hasExportableLogs,
     required this.canClear,
     required this.onHideProtocolRequestsChanged,
+    required this.onExport,
     required this.onClear,
   });
 
@@ -349,6 +365,7 @@ class _LogOptionsButtonState extends State<_LogOptionsButton> {
 
   Future<void> _showMenu() async {
     if (_menuOpen) return;
+    var exportRequested = false;
     setState(() => _menuOpen = true);
     final result = showDropdown<void>(
       context: context,
@@ -361,6 +378,8 @@ class _LogOptionsButtonState extends State<_LogOptionsButton> {
           surfaceOpacity: 0.98,
           surfaceBlur: 12,
           children: [
+            MenuButton(onPressed: (_) => exportRequested = true, child: const Text('导出日志')),
+            const MenuDivider(),
             MenuCheckbox(
               value: widget.hideProtocolRequests,
               child: const Text('隐藏协议请求'),
@@ -377,9 +396,20 @@ class _LogOptionsButtonState extends State<_LogOptionsButton> {
     );
     try {
       await result.future;
+      await result.animationFuture;
     } finally {
       if (mounted) setState(() => _menuOpen = false);
     }
+
+    if (!mounted || !exportRequested) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!widget.hasExportableLogs) {
+        AppToast.info(context, '暂无可导出的日志');
+        return;
+      }
+      widget.onExport();
+    });
   }
 
   @override

@@ -121,6 +121,8 @@ class _WorkspaceDetailPageState extends State<WorkspaceDetailPage> {
         child: _tabIndex == 0
             ? LogTimeline(
                 entries: logs,
+                workspaceName: workspace.name,
+                projectRoot: workspace.projectRoot,
                 onPreviewFile: _openPreview,
                 previewEntryId: previewAvailable ? _previewEntryId : null,
                 previewPath: previewAvailable ? _previewPath : null,
